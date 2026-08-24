@@ -7,9 +7,6 @@ import orderRoutes from "./routes/orderRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
 import uploadRoutes from "./routes/uploadRoutes.js";
-import { MenuItem } from "./models/MenuItem.js";
-import { Bean } from "./models/Bean.js";
-import { initialMenuSections, initialBeans } from "./seed/data.js";
 import mongoose from "mongoose";
 
 dotenv.config();
@@ -24,7 +21,10 @@ app.use(
     credentials: true,
   })
 );
-app.use(express.json());
+
+// Allow up to 50mb JSON payloads for image uploads
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ limit: "50mb", extended: true }));
 
 // Serverless DB Connection Middleware
 app.use(async (req, res, next) => {
@@ -36,43 +36,8 @@ app.use(async (req, res, next) => {
   next();
 });
 
-// Auto-seed MongoDB with initial Boost Coffee items if connected
-let hasSeeded = false;
-async function seedInitialData() {
-  if (hasSeeded || mongoose.connection.readyState !== 1) return;
-  try {
-    const sampleItem = await MenuItem.findOne();
-    if (!sampleItem || sampleItem.price < 50) {
-      console.log("🌱 Syncing Boost Coffee menu with Algerian Dinar (DA) prices...");
-      await MenuItem.deleteMany({});
-      for (const section of initialMenuSections) {
-        for (const item of section.items) {
-          await MenuItem.create({
-            name: item.name,
-            note: item.note,
-            price: item.price,
-            category: section.title,
-          });
-        }
-      }
-    }
-
-    const sampleBean = await Bean.findOne();
-    if (!sampleBean || sampleBean.price < 100) {
-      console.log("🌱 Syncing Boost Coffee shelf beans with Algerian Dinar (DA) prices...");
-      await Bean.deleteMany({});
-      for (const bean of initialBeans) {
-        await Bean.create(bean);
-      }
-    }
-    hasSeeded = true;
-  } catch (err) {
-    console.warn("Notice seeding initial data:", err.message);
-  }
-}
-
 // Health check endpoint
-app.get("/api/health", (req, res) => {
+app.get(["/api/health", "/health"], (req, res) => {
   const dbStatus = getDBStatus();
   res.json({
     status: "ok",
@@ -83,12 +48,18 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-// API Routes
+// API Routes mounted on both /api and / for compatibility with all serverless rewrites
 app.use("/api", menuRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", reservationRoutes);
 app.use("/api", contactRoutes);
 app.use("/api", uploadRoutes);
+
+app.use(menuRoutes);
+app.use(orderRoutes);
+app.use(reservationRoutes);
+app.use(contactRoutes);
+app.use(uploadRoutes);
 
 // Root route
 app.get("/", (req, res) => {
@@ -102,6 +73,7 @@ app.get("/", (req, res) => {
       "/api/stats",
       "/api/reservations",
       "/api/contact",
+      "/api/upload",
     ],
   });
 });
@@ -109,7 +81,6 @@ app.get("/", (req, res) => {
 // Start local dev server if not in Vercel serverless environment
 if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
   connectDB().then(() => {
-    seedInitialData();
     app.listen(PORT, () => {
       console.log(`☕ Boost Coffee Backend running on http://localhost:${PORT}`);
     });

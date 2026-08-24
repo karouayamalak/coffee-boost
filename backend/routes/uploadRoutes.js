@@ -3,40 +3,30 @@ import { v2 as cloudinary } from "cloudinary";
 
 const router = express.Router();
 
-// Configure Cloudinary with env vars
+const CLOUD_NAME = process.env.CLOUDINARY_CLOUD_NAME || "dpvzrczch";
+const API_KEY = process.env.CLOUDINARY_API_KEY || "364366925138271";
+const API_SECRET = process.env.CLOUDINARY_API_SECRET || "zaivykT5-f3-l_cZlTk28izxXoM";
+
 cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+  cloud_name: CLOUD_NAME,
+  api_key: API_KEY,
+  api_secret: API_SECRET,
 });
 
 /**
- * POST /api/upload
+ * POST /api/upload & POST /upload
  * Accepts a base64 data URI from the dashboard, uploads to Cloudinary,
  * and returns the secure URL to store in MongoDB.
- *
- * Body: { data: "data:image/png;base64,..." }
  */
 router.post("/upload", async (req, res) => {
   try {
     const { data } = req.body;
 
-    if (!data || !data.startsWith("data:")) {
+    if (!data || typeof data !== "string" || !data.startsWith("data:")) {
       return res.status(400).json({ success: false, message: "No valid image data provided." });
     }
 
-    if (
-      !process.env.CLOUDINARY_CLOUD_NAME ||
-      !process.env.CLOUDINARY_API_KEY ||
-      !process.env.CLOUDINARY_API_SECRET
-    ) {
-      return res.status(500).json({
-        success: false,
-        message: "Cloudinary is not configured on this server. Add CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET to your environment variables.",
-      });
-    }
-
-    // Upload directly from the base64 data URI
+    // Upload directly from the base64 data URI to Cloudinary
     const result = await cloudinary.uploader.upload(data, {
       folder: "boost-coffee/items",
       resource_type: "image",
@@ -45,6 +35,7 @@ router.post("/upload", async (req, res) => {
       ],
     });
 
+    console.log(`✅ Cloudinary upload success: ${result.secure_url}`);
     return res.json({
       success: true,
       url: result.secure_url,

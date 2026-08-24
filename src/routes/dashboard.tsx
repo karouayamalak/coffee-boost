@@ -708,23 +708,59 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
                               }
                               setIsUploadingImage(true);
                               try {
-                                // Convert to base64 data URI
+                                // Resize image on client before uploading for super fast uploads
                                 const base64 = await new Promise<string>((resolve, reject) => {
                                   const reader = new FileReader();
-                                  reader.onload = () => resolve(reader.result as string);
+                                  reader.onload = (event) => {
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      const maxDim = 800;
+                                      let width = img.width;
+                                      let height = img.height;
+                                      if (width > height && width > maxDim) {
+                                        height = Math.round((height * maxDim) / width);
+                                        width = maxDim;
+                                      } else if (height > maxDim) {
+                                        width = Math.round((width * maxDim) / height);
+                                        height = maxDim;
+                                      }
+                                      const canvas = document.createElement("canvas");
+                                      canvas.width = width;
+                                      canvas.height = height;
+                                      const ctx = canvas.getContext("2d");
+                                      if (ctx) {
+                                        ctx.drawImage(img, 0, 0, width, height);
+                                        resolve(canvas.toDataURL("image/png"));
+                                      } else {
+                                        resolve(event.target?.result as string);
+                                      }
+                                    };
+                                    img.onerror = () => resolve(event.target?.result as string);
+                                    img.src = event.target?.result as string;
+                                  };
                                   reader.onerror = reject;
                                   reader.readAsDataURL(file);
                                 });
+
                                 // Upload to Cloudinary via backend
                                 const res = await fetch(`${API_BASE}/upload`, {
                                   method: "POST",
                                   headers: { "Content-Type": "application/json" },
                                   body: JSON.stringify({ data: base64 }),
                                 });
-                                const result = await res.json();
-                                if (!res.ok || !result.success) {
-                                  throw new Error(result.message || "Upload failed");
+
+                                const text = await res.text();
+                                let result;
+                                try {
+                                  result = JSON.parse(text);
+                                } catch {
+                                  throw new Error("Server returned non-JSON response. Please try again.");
                                 }
+
+                                if (!res.ok || !result.success) {
+                                  throw new Error(result.message || `Upload failed (Status ${res.status})`);
+                                }
+
                                 setNewProductImage(result.url);
                                 toast.success("✅ Uploaded to Cloudinary!", { description: result.url.slice(0, 60) + "..." });
                               } catch (err: any) {
