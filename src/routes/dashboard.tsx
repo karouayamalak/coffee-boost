@@ -658,18 +658,109 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
                         />
                       </div>
 
-                      <div>
-                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
-                          Image URL (Optional)
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1.5">
+                        Product Picture (Upload file, choose a preset, or paste URL)
+                      </label>
+
+                      {/* File upload input */}
+                      <div className="flex items-center gap-3">
+                        <label className="cursor-pointer rounded-2xl border border-dashed border-primary/50 bg-primary/5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 transition-colors">
+                          📁 Upload from Computer
+                          <input
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file) {
+                                if (file.size > 2 * 1024 * 1024) {
+                                  toast.error("Please choose an image under 2MB");
+                                  return;
+                                }
+                                const reader = new FileReader();
+                                reader.onload = () => {
+                                  if (typeof reader.result === "string") {
+                                    setNewProductImage(reader.result);
+                                    toast.success("Image uploaded!");
+                                  }
+                                };
+                                reader.readAsDataURL(file);
+                              }
+                            }}
+                          />
                         </label>
+                        <span className="text-[11px] text-muted-foreground">or enter URL:</span>
                         <input
-                          type="url"
-                          placeholder="https://... or /assets/..."
+                          type="text"
+                          placeholder="/items/... or https://..."
                           value={newProductImage}
                           onChange={(e) => setNewProductImage(e.target.value)}
-                          className="w-full rounded-2xl border border-input bg-background px-4 py-2 text-xs focus:ring-2 focus:ring-primary"
+                          className="flex-1 rounded-2xl border border-input bg-background px-3 py-1.5 text-xs focus:ring-2 focus:ring-primary"
                         />
                       </div>
+
+                      {/* Image Preview & Quick Presets */}
+                      <div className="mt-3">
+                        <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">
+                          Quick Presets:
+                        </p>
+                        <div className="flex flex-wrap gap-2">
+                          {[
+                            { name: "Iced Caramel", url: "/items/drink-iced-caramel.png" },
+                            { name: "Matcha Latte", url: "/items/item-strawberry-matcha.png" },
+                            { name: "Mocha Frappé", url: "/items/item-iced-mocha.png" },
+                            { name: "Espresso", url: "/items/item-espresso-crema.png" },
+                            { name: "Cheesecake", url: "/items/item-basque-cheesecake.png" },
+                            { name: "Choc Cake", url: "/items/item-chocolate-cake.png" },
+                            { name: "Croissant", url: "/items/item-croissant.png" },
+                            { name: "Cookie", url: "/items/item-cookie.png" },
+                            { name: "Brookie", url: "/items/item-brookie.png" },
+                            { name: "Cinnamon Roll", url: "/items/item-cinnamon-roll.png" },
+                            { name: "Salmon Toast", url: "/items/item-salmon-toast.png" },
+                            { name: "Avocado Toast", url: "/items/item-avocado-ricotta.png" },
+                            { name: "Caesar Salad", url: "/items/item-caesar-salad.png" },
+                            { name: "Belgian Waffle", url: "/items/item-belgian-waffle.png" },
+                          ].map((p) => (
+                            <button
+                              type="button"
+                              key={p.name}
+                              onClick={() => setNewProductImage(p.url)}
+                              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
+                                newProductImage === p.url
+                                  ? "border-primary bg-primary/10 text-primary font-bold shadow-sm scale-105"
+                                  : "border-border bg-card text-muted-foreground hover:bg-secondary"
+                              }`}
+                            >
+                              <img src={p.url} alt={p.name} className="h-4 w-4 object-contain" />
+                              <span>{p.name}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Image Preview if selected */}
+                      {newProductImage && (
+                        <div className="mt-3 flex items-center gap-3 rounded-2xl bg-secondary/50 p-2.5 border border-border">
+                          <img
+                            src={newProductImage}
+                            alt="Preview"
+                            className="h-12 w-12 object-contain rounded-xl bg-card p-1 border border-border"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <p className="text-xs font-bold text-foreground">Image selected</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{newProductImage.slice(0, 50)}...</p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setNewProductImage("")}
+                            className="text-xs text-red-600 font-bold hover:underline"
+                          >
+                            Remove
+                          </button>
+                        </div>
+                      )}
+                    </div>
                     </div>
 
                     <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-border">
