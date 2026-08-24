@@ -76,15 +76,15 @@ router.get("/orders", async (req, res) => {
     if (mongoose.connection.readyState === 1) {
       try {
         const orders = await Order.find().sort({ createdAt: -1 });
-        return res.json({ success: true, orders });
+        return res.json({ success: true, orders, dbConnected: true });
       } catch (dbErr) {
         console.warn("DB find orders error, falling back to memory:", dbErr.message);
       }
     }
-    return res.json({ success: true, orders: memoryOrders });
+    return res.json({ success: true, orders: memoryOrders, dbConnected: false });
   } catch (error) {
     console.warn("Orders endpoint fallback:", error.message);
-    return res.json({ success: true, orders: memoryOrders });
+    return res.json({ success: true, orders: memoryOrders, dbConnected: false });
   }
 });
 

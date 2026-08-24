@@ -65,22 +65,30 @@ const STATUS_FLOW: Record<string, string> = {
   ready: "completed",
 };
 
-async function fetchOrders(): Promise<Order[]> {
+interface OrdersResult {
+  orders: Order[];
+  dbConnected: boolean;
+}
+
+async function fetchOrders(): Promise<OrdersResult> {
   try {
     const res = await fetch(`${API_BASE}/orders`);
-    if (!res.ok) throw new Error("Failed to fetch orders");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    return data.orders ?? [];
+    return {
+      orders: data.orders ?? [],
+      dbConnected: data.dbConnected ?? true,
+    };
   } catch (err) {
-    console.debug("Dashboard fetchOrders fallback:", err);
-    return [];
+    console.debug("Dashboard fetchOrders error:", err);
+    return { orders: [], dbConnected: false };
   }
 }
 
 async function fetchStats(): Promise<Stats> {
   try {
     const res = await fetch(`${API_BASE}/stats`);
-    if (!res.ok) throw new Error("Failed to fetch stats");
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return data.stats || { totalOrders: 0, pendingOrders: 0, totalRevenue: 0, reservationsCount: 0 };
   } catch (err) {
@@ -189,11 +197,13 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
 
   // Queries
-  const { data: orders = [], isLoading: ordersLoading } = useQuery({
+  const { data: ordersResult, isLoading: ordersLoading } = useQuery({
     queryKey: ["dashboard-orders"],
     queryFn: fetchOrders,
     refetchInterval: 10_000,
   });
+  const orders = ordersResult?.orders ?? [];
+  const dbConnected = ordersResult?.dbConnected ?? true;
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
@@ -344,6 +354,20 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
             color="bg-secondary text-foreground"
           />
         </div>
+
+        {/* ─── DB CONNECTION STATUS BANNER ──────────────────────────── */}
+        {ordersResult !== undefined && (
+          <div className={`mt-4 flex items-center gap-2.5 rounded-2xl px-4 py-2.5 text-xs font-semibold ${
+            dbConnected
+              ? "bg-green-50 text-green-800 border border-green-200"
+              : "bg-amber-50 text-amber-900 border border-amber-200"
+          }`}>
+            <span className={`h-2 w-2 rounded-full flex-shrink-0 ${dbConnected ? "bg-green-500" : "bg-amber-500 animate-pulse"}`} />
+            {dbConnected
+              ? "MongoDB Atlas connected — orders and data are persisted in real-time."
+              : "Database not connected. Orders will not persist between page loads. Go to Vercel → Settings → Environment Variables and make sure MONGODB_URI is set, then redeploy. Also ensure MongoDB Atlas Network Access allows 0.0.0.0/0."}
+          </div>
+        )}
 
         {/* ─── VIEW 1: ORDERS TERMINAL ──────────────────────────────── */}
         {mainView === "orders" && (
