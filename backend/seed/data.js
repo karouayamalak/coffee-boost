@@ -1,0 +1,42 @@
+export const initialMenuSections = [
+  {
+    title: "Drinks & Specialty Brews",
+    items: [
+      { id: "d1", name: "Iced Caramel Macchiato", note: "Layered espresso over chilled whole milk with caramel drizzle, ice cubes & cinnamon dusting", price: 520, category: "Drinks & Specialty Brews", badge: "Signature" },
+      { id: "d2", name: "Iced Strawberry Matcha Latte", note: "Ceremonial grade Japanese matcha, fresh milk, organic strawberry purée, heart ice cubes & sliced strawberries", price: 580, category: "Drinks & Specialty Brews", badge: "Popular" },
+      { id: "d3", name: "Iced Dark Mocha Frappé", note: "Blended double espresso, rich dark chocolate fudge, whipped coffee cloud & chocolate curls", price: 540, category: "Drinks & Specialty Brews", badge: "Iced Special" },
+      { id: "d4", name: "Espresso Crema Roast", note: "Pure double shot small batch roast with thick golden hazelnut crema", price: 350, category: "Drinks & Specialty Brews", badge: "Classic" },
+    ],
+  },
+  {
+    title: "Desserts, Cakes & Bakery",
+    items: [
+      { id: "b1", name: "Basque Burnt Cheesecake", note: "Caramelised Basque cheesecake served warm with melted salted caramel & vanilla bean ice cream scoop", price: 550, category: "Desserts, Cakes & Bakery", badge: "Chef Special" },
+      { id: "b2", name: "Triple Chocolate Fudge Cake Slice", note: "Three layers moist chocolate sponge, dark chocolate ganache & chocolate curls", price: 480, category: "Desserts, Cakes & Bakery", badge: "Decadent" },
+      { id: "b3", name: "Oreo Cookies & Cream Cheesecake", note: "Crushed Oreo biscuit crust, rich cream cheese filling, Oreo crumble & dark chocolate drizzle", price: 460, category: "Desserts, Cakes & Bakery" },
+      { id: "b4", name: "Strawberry New York Cheesecake", note: "Baked New York style cheesecake on graham cracker crust with fresh strawberry glaze & mint", price: 450, category: "Desserts, Cakes & Bakery" },
+      { id: "b5", name: "Molten Chocolate Lava Dome", note: "Dark chocolate shell filled with airy chocolate mousse, hot molten lava center & roasted cacao nibs", price: 420, category: "Desserts, Cakes & Bakery", badge: "House Special" },
+      { id: "b6", name: "Strawberry Cream Daifuku Mochi", note: "Soft pink mochi filled with whipped cream, strawberry compote core, chocolate crunch & freeze-dried strawberries", price: 380, category: "Desserts, Cakes & Bakery" },
+      { id: "b7", name: "Classic French Butter Croissant", note: "Flaky all-butter golden French pastry, baked fresh every morning at 6am", price: 260, category: "Desserts, Cakes & Bakery", badge: "Fresh Daily" },
+      { id: "b8", name: "Choc-Chip Sea Salt Cookie", note: "Soft-baked golden cookie with Belgian milk chocolate chunks & Maldon sea salt crystals", price: 240, category: "Desserts, Cakes & Bakery", badge: "Best Seller" },
+      { id: "b9", name: "Dark Chocolate Chunk Brookie", note: "Dense 70% dark chocolate brownie cookie packed with melted chocolate chunks", price: 300, category: "Desserts, Cakes & Bakery" },
+      { id: "b10", name: "Glazed Cinnamon Roll Swirl", note: "Warm cinnamon cardamom swirl bun with rich vanilla cream cheese glaze", price: 280, category: "Desserts, Cakes & Bakery" },
+      { id: "b11", name: "Golden Glazed Honey Donut", note: "Soft fluffy yeast donut coated in honey sugar glaze", price: 220, category: "Desserts, Cakes & Bakery" },
+    ],
+  },
+  {
+    title: "Savory & Breakfast Plates",
+    items: [
+      { id: "s1", name: "Smoked Salmon & Cream Cheese Toast", note: "Artisan toasted sourdough, whipped cream cheese, Atlantic smoked salmon & cracked black pepper", price: 680, category: "Savory & Breakfast Plates", badge: "Chef Pick" },
+      { id: "s2", name: "Avocado Ricotta Sourdough Toast", note: "Sliced fresh avocado on whipped ricotta spread, extra virgin olive oil, herbs & hemp seeds", price: 580, category: "Savory & Breakfast Plates", badge: "Vegetarian" },
+      { id: "s3", name: "Grilled Chicken Caesar Salad Bowl", note: "Marinated grilled chicken breast, crisp romaine lettuce, shaved parmesan, garlic croutons & house Caesar dressing", price: 650, category: "Savory & Breakfast Plates", badge: "Healthy" },
+      { id: "s4", name: "Belgian Butter Waffle with Maple Syrup", note: "Crispy golden Belgian waffle served warm with butter pad & pure maple syrup", price: 450, category: "Savory & Breakfast Plates", badge: "Warm Breakfast" },
+    ],
+  },
+];
+
+export const initialBeans = [
+  { id: "bn1", name: "Yirgacheffe", note: "Jasmine, apricot, black tea", roast: "Light", price: 1400, weight: "250g" },
+  { id: "bn2", name: "Huila Reserve", note: "Cocoa, red apple, caramel", roast: "Medium", price: 1400, weight: "250g" },
+  { id: "bn3", name: "Night Shift", note: "Molasses, walnut, tobacco", roast: "Dark", price: 1400, weight: "250g" },
+];

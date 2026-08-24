@@ -1,0 +1,115 @@
+@import "tailwindcss" source(none);
+@source "../src";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+/*
+ * Boost Coffee Shop — brand design system.
+ * Palette: cream paper, olive green, dark roast brown, marker orange.
+ */
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
+  --radius-3xl: calc(var(--radius) + 12px);
+  --radius-4xl: calc(var(--radius) + 16px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-roast: var(--roast);
+  --color-roast-foreground: var(--roast-foreground);
+  --color-cream: var(--cream);
+  --color-marker: var(--marker);
+  --color-marker-foreground: var(--marker-foreground);
+  --font-display: "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
+  --font-script: "Caveat", cursive;
+  --font-sans: "DM Sans", ui-sans-serif, system-ui, sans-serif;
+}
+
+:root {
+  --radius: 1.25rem;
+  --background: oklch(0.972 0.021 92.5);
+  --foreground: oklch(0.26 0.045 52.3);
+  --card: oklch(0.985 0.014 92.5);
+  --card-foreground: oklch(0.26 0.045 52.3);
+  --popover: oklch(0.985 0.014 92.5);
+  --popover-foreground: oklch(0.26 0.045 52.3);
+  --primary: oklch(0.46 0.075 116.5);
+  --primary-foreground: oklch(0.975 0.02 92.5);
+  --secondary: oklch(0.93 0.03 95);
+  --secondary-foreground: oklch(0.34 0.06 110);
+  --muted: oklch(0.94 0.025 95);
+  --muted-foreground: oklch(0.5 0.035 85);
+  --accent: oklch(0.7 0.16 55);
+  --accent-foreground: oklch(0.24 0.05 50);
+  --destructive: oklch(0.55 0.2 27);
+  --destructive-foreground: oklch(0.98 0.01 92);
+  --border: oklch(0.86 0.03 92);
+  --input: oklch(0.86 0.03 92);
+  --ring: oklch(0.46 0.075 116.5);
+  --roast: oklch(0.26 0.055 45);
+  --roast-foreground: oklch(0.975 0.02 92.5);
+  --cream: oklch(0.972 0.021 92.5);
+  --marker: oklch(0.7 0.16 55);
+  --marker-foreground: oklch(0.24 0.05 50);
+}
+
+@layer base {
+  * {
+    border-color: var(--color-border);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-foreground);
+    font-family: var(--font-sans);
+  }
+
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    font-weight: 800;
+    letter-spacing: -0.03em;
+  }
+}
+
+@utility script {
+  font-family: var(--font-script);
+  font-weight: 700;
+}
+
+@utility grain {
+  background-image: radial-gradient(
+    oklch(0.26 0.045 52.3 / 0.06) 1px,
+    transparent 1px
+  );
+  background-size: 4px 4px;
+}
+
+@utility eyebrow {
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
