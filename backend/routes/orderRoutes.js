@@ -1,11 +1,20 @@
 import express from "express";
 import { Order } from "../models/Order.js";
 import { Reservation } from "../models/Reservation.js";
+import { connectDB } from "../config/db.js";
 import mongoose from "mongoose";
 
 const router = express.Router();
 
 const memoryOrders = [];
+
+// Helper to ensure DB is connected before query
+async function ensureDB() {
+  if (mongoose.connection.readyState !== 1) {
+    await connectDB();
+  }
+  return mongoose.connection.readyState === 1;
+}
 
 // POST /api/orders (create a new order)
 router.post("/orders", async (req, res) => {
@@ -44,7 +53,8 @@ router.post("/orders", async (req, res) => {
       createdAt: new Date(),
     };
 
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       try {
         const order = await Order.create(orderData);
         return res.status(201).json({
@@ -73,7 +83,8 @@ router.post("/orders", async (req, res) => {
 // GET /api/orders (retrieve orders for Owner Dashboard)
 router.get("/orders", async (req, res) => {
   try {
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       try {
         const orders = await Order.find().sort({ createdAt: -1 });
         return res.json({ success: true, orders, dbConnected: true });
@@ -98,7 +109,8 @@ router.patch("/orders/:id/status", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid status value" });
     }
 
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       try {
         const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
         if (order) return res.json({ success: true, order });
@@ -123,7 +135,8 @@ router.patch("/orders/:id/status", async (req, res) => {
 router.delete("/orders/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       try {
         await Order.findByIdAndDelete(id);
         return res.json({ success: true, message: "Order deleted" });
@@ -145,7 +158,8 @@ router.get("/stats", async (req, res) => {
     let orders = [];
     let reservationsCount = 0;
 
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       try {
         orders = await Order.find();
         reservationsCount = await Reservation.countDocuments();

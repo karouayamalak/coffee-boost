@@ -1,46 +1,53 @@
-import dns from "dns";
-
-// Force reliable DNS for Node.js SRV resolution
-try {
-  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
-} catch (e) {
-  // ignore if not supported in environment
-}
-
 import mongoose from "mongoose";
 
-let cachedPromise = null;
+const DEFAULT_URI =
+  "mongodb+srv://akarou_db_user:hOVfINhbMp9mT5WF@coffee-boost.yjsxuri.mongodb.net/boost_coffee?retryWrites=true&w=majority&appName=coffee-boost";
+
+// Global cache across serverless function invocations
+let cached = global._mongooseCache;
+
+if (!cached) {
+  cached = global._mongooseCache = { conn: null, promise: null };
+}
 
 export async function connectDB() {
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
-  if (!uri) {
-    return false;
+  if (cached.conn && mongoose.connection.readyState === 1) {
+    return cached.conn;
   }
 
-  if (mongoose.connection.readyState === 1) {
-    return true;
-  }
+  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || DEFAULT_URI;
 
-  if (cachedPromise) {
-    return cachedPromise;
-  }
-
-  cachedPromise = mongoose
-    .connect(uri, {
+  if (!cached.promise) {
+    const opts = {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-    })
-    .then((conn) => {
-      console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
-      return true;
-    })
-    .catch((error) => {
-      console.warn(`⚠️ MongoDB connection fallback (${error.message}). Operating in in-memory mode.`);
-      cachedPromise = null;
-      return false;
-    });
+      serverSelectionTimeoutMS: 10000,
+      connectTimeoutMS: 10000,
+      maxPoolSize: 10,
+    };
 
-  return cachedPromise;
+    cached.promise = mongoose
+      .connect(uri, opts)
+      .then((mongooseInstance) => {
+        console.log(`✅ MongoDB Atlas Connected: ${mongooseInstance.connection.host}`);
+        cached.conn = mongooseInstance;
+        return mongooseInstance;
+      })
+      .catch((err) => {
+        console.error(`❌ MongoDB connection error: ${err.message}`);
+        cached.promise = null;
+        cached.conn = null;
+        return null;
+      });
+  }
+
+  try {
+    cached.conn = await cached.promise;
+  } catch (e) {
+    cached.promise = null;
+    cached.conn = null;
+  }
+
+  return cached.conn;
 }
 
 export function getDBStatus() {

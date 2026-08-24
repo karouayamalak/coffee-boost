@@ -2,6 +2,7 @@ import express from "express";
 import { MenuItem } from "../models/MenuItem.js";
 import { Bean } from "../models/Bean.js";
 import { initialMenuSections, initialBeans } from "../seed/data.js";
+import { connectDB } from "../config/db.js";
 import mongoose from "mongoose";
 
 const router = express.Router();
@@ -9,13 +10,21 @@ const router = express.Router();
 let memoryMenuItems = JSON.parse(JSON.stringify(initialMenuSections));
 let memoryBeans = JSON.parse(JSON.stringify(initialBeans));
 
+// Helper to ensure DB is connected before query
+async function ensureDB() {
+  if (mongoose.connection.readyState !== 1) {
+    await connectDB();
+  }
+  return mongoose.connection.readyState === 1;
+}
+
 // GET /api/menu
 router.get("/menu", async (req, res) => {
   try {
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       const items = await MenuItem.find({ available: true }).sort({ createdAt: 1 });
       if (items.length > 0) {
-        // Group by category while preserving default category ordering
         const predefinedCategories = [
           "Drinks & Specialty Brews",
           "Desserts, Cakes & Bakery",
@@ -48,7 +57,8 @@ router.get("/menu", async (req, res) => {
 // GET /api/beans
 router.get("/beans", async (req, res) => {
   try {
-    if (mongoose.connection.readyState === 1) {
+    const isConnected = await ensureDB();
+    if (isConnected) {
       const beans = await Bean.find({ inStock: true });
       if (beans.length > 0) {
         return res.json({ success: true, beans });
@@ -60,65 +70,85 @@ router.get("/beans", async (req, res) => {
   }
 });
 
-// POST /api/menu (Owner adds a new product)
+// POST /api/menu (add custom item via Owner Dashboard)
 router.post("/menu", async (req, res) => {
   try {
     const { name, note, price, category, badge, image } = req.body;
+
     if (!name || !price || !category) {
-      return res.status(400).json({ success: false, message: "Name, price, and category are required." });
+      return res.status(400).json({
+        success: false,
+        message: "Name, price, and category are required.",
+      });
     }
 
-    const itemData = {
+    const newItemData = {
       name: name.trim(),
-      note: note || "",
+      note: (note || "").trim(),
       price: Number(price),
       category: category.trim(),
-      badge: badge || "",
-      image: image || "",
+      badge: (badge || "").trim(),
+      image: (image || "").trim(),
       available: true,
+      createdAt: new Date(),
     };
 
-    if (mongoose.connection.readyState === 1) {
-      try {
-        const newItem = await MenuItem.create(itemData);
-        return res.status(201).json({ success: true, item: newItem, message: "Product added successfully!" });
-      } catch (dbErr) {
-        console.warn("DB create item error, adding to memory:", dbErr.message);
-      }
+    const isConnected = await ensureDB();
+    if (isConnected) {
+      const createdItem = await MenuItem.create(newItemData);
+      return res.status(201).json({
+        success: true,
+        message: "Product added successfully to database!",
+        item: createdItem,
+      });
     }
 
-    const newItem = { id: `m_${Date.now()}`, ...itemData };
-    const secIndex = memoryMenuItems.findIndex((s) => s.title.toLowerCase() === category.toLowerCase());
-    if (secIndex >= 0) {
-      memoryMenuItems[secIndex].items.push(newItem);
+    // In-memory fallback
+    const targetSection = memoryMenuItems.find((s) => s.title === category);
+    const newMemoryItem = { ...newItemData, id: `custom_${Date.now()}` };
+    if (targetSection) {
+      targetSection.items.push(newMemoryItem);
     } else {
-      memoryMenuItems.push({ title: category, items: [newItem] });
+      memoryMenuItems.push({
+        title: category,
+        items: [newMemoryItem],
+      });
     }
-    return res.status(201).json({ success: true, item: newItem, message: "Product added to menu!" });
+
+    return res.status(201).json({
+      success: true,
+      message: "Product added successfully (in-memory mode)",
+      item: newMemoryItem,
+    });
   } catch (error) {
+    console.error("Error adding menu item:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
 
-// DELETE /api/menu/:id (Owner deletes a product)
+// DELETE /api/menu/:id (remove custom item via Owner Dashboard)
 router.delete("/menu/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    if (mongoose.connection.readyState === 1) {
-      try {
+
+    const isConnected = await ensureDB();
+    if (isConnected) {
+      if (mongoose.Types.ObjectId.isValid(id)) {
         await MenuItem.findByIdAndDelete(id);
-        return res.json({ success: true, message: "Product removed from menu" });
-      } catch (dbErr) {
-        console.warn("DB delete item error:", dbErr.message);
+      } else {
+        await MenuItem.findOneAndDelete({ name: id });
       }
+      return res.json({ success: true, message: "Product deleted from database" });
     }
 
-    memoryMenuItems.forEach((sec) => {
-      sec.items = sec.items.filter((item) => item.id !== id && item._id !== id);
+    // In-memory fallback
+    memoryMenuItems.forEach((section) => {
+      section.items = section.items.filter((i) => i.id !== id && i.name !== id);
     });
 
-    return res.json({ success: true, message: "Product removed from menu" });
+    return res.json({ success: true, message: "Product deleted from memory" });
   } catch (error) {
+    console.error("Error deleting menu item:", error);
     return res.status(500).json({ success: false, message: error.message });
   }
 });
