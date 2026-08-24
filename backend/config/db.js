@@ -1,3 +1,12 @@
+import dns from "dns";
+
+// Force reliable DNS for Node.js SRV resolution
+try {
+  dns.setServers(["8.8.8.8", "8.8.4.4", "1.1.1.1"]);
+} catch (e) {
+  // ignore if not supported in environment
+}
+
 import mongoose from "mongoose";
 
 let cachedPromise = null;
@@ -19,7 +28,7 @@ export async function connectDB() {
   cachedPromise = mongoose
     .connect(uri, {
       bufferCommands: false,
-      serverSelectionTimeoutMS: 3000,
+      serverSelectionTimeoutMS: 5000,
     })
     .then((conn) => {
       console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
