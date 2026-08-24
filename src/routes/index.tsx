@@ -97,7 +97,8 @@ function Index() {
   });
 
   const handleAddItem = (item: { name: string; price: number | string; note?: string | undefined; image?: string | undefined }) => {
-    const resolvedImg = item.image || ASSET_MAP[item.name] || itemCroissant;
+    // Priority: item's own image > ASSET_MAP by name > croissant placeholder
+    const resolvedImg = item.image || ASSET_MAP[item.name] || "/items/item-croissant.png";
     addItem({ name: item.name, price: item.price, note: item.note, image: resolvedImg });
     toast.success(`Added ${item.name} to your order!`, {
       description: "Click 'Order ahead' to checkout.",
