@@ -1,6 +1,7 @@
 import { useState, createContext, useContext, ReactNode } from "react";
 import { placeOrder, formatPrice } from "../lib/api";
 import { Bean } from "./bean";
+import { toast } from "sonner";
 
 export interface CartItem {
   name: string;
@@ -137,8 +138,9 @@ function CartModal() {
         setOrderSuccess(res.order);
         clearCart();
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error(err);
+      toast.error(err.message || "Failed to place order. Please try again.");
     } finally {
       setLoading(false);
     }

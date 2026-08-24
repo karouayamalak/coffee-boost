@@ -160,23 +160,16 @@ export async function deleteMenuItem(id: string) {
 }
 
 export async function placeOrder(order: OrderPayload) {
-  try {
-    const res = await fetch(`${API_BASE_URL}/orders`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(order),
-    });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.message || "Failed to place order");
-    return data;
-  } catch (err) {
-    console.warn("Backend order fallback:", err);
-    return {
-      success: true,
-      message: "Order placed successfully! (Local confirmation)",
-      order: { ...order, orderNumber: `BC-${Math.floor(1000 + Math.random() * 9000)}` },
-    };
+  const res = await fetch(`${API_BASE_URL}/orders`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(order),
+  });
+  const data = await res.json();
+  if (!res.ok || !data.success) {
+    throw new Error(data.message || "Failed to place order with server");
   }
+  return data;
 }
 
 export async function placeReservation(reservation: ReservationPayload) {

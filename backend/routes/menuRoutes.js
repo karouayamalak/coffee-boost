@@ -1,29 +1,19 @@
 import express from "express";
-import { MenuItem } from "../models/MenuItem.js";
-import { Bean } from "../models/Bean.js";
+import { getDB } from "../config/db.js";
 import { initialMenuSections, initialBeans } from "../seed/data.js";
-import { connectDB } from "../config/db.js";
-import mongoose from "mongoose";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 
 let memoryMenuItems = JSON.parse(JSON.stringify(initialMenuSections));
 let memoryBeans = JSON.parse(JSON.stringify(initialBeans));
 
-// Helper to ensure DB is connected before query
-async function ensureDB() {
-  if (mongoose.connection.readyState !== 1) {
-    await connectDB();
-  }
-  return mongoose.connection.readyState === 1;
-}
-
 // GET /api/menu
 router.get("/menu", async (req, res) => {
   try {
-    const isConnected = await ensureDB();
-    if (isConnected) {
-      const items = await MenuItem.find({ available: true }).sort({ createdAt: 1 });
+    const db = await getDB();
+    if (db) {
+      const items = await db.collection("menuitems").find({ available: true }).sort({ createdAt: 1 }).toArray();
       if (items.length > 0) {
         const predefinedCategories = [
           "Drinks & Specialty Brews",
@@ -57,9 +47,9 @@ router.get("/menu", async (req, res) => {
 // GET /api/beans
 router.get("/beans", async (req, res) => {
   try {
-    const isConnected = await ensureDB();
-    if (isConnected) {
-      const beans = await Bean.find({ inStock: true });
+    const db = await getDB();
+    if (db) {
+      const beans = await db.collection("beans").find({ inStock: true }).toArray();
       if (beans.length > 0) {
         return res.json({ success: true, beans });
       }
@@ -93,13 +83,13 @@ router.post("/menu", async (req, res) => {
       createdAt: new Date(),
     };
 
-    const isConnected = await ensureDB();
-    if (isConnected) {
-      const createdItem = await MenuItem.create(newItemData);
+    const db = await getDB();
+    if (db) {
+      const result = await db.collection("menuitems").insertOne(newItemData);
       return res.status(201).json({
         success: true,
         message: "Product added successfully to database!",
-        item: createdItem,
+        item: { ...newItemData, _id: result.insertedId },
       });
     }
 
@@ -130,14 +120,15 @@ router.post("/menu", async (req, res) => {
 router.delete("/menu/:id", async (req, res) => {
   try {
     const { id } = req.params;
-
-    const isConnected = await ensureDB();
-    if (isConnected) {
-      if (mongoose.Types.ObjectId.isValid(id)) {
-        await MenuItem.findByIdAndDelete(id);
+    const db = await getDB();
+    if (db) {
+      let filter;
+      if (ObjectId.isValid(id)) {
+        filter = { _id: new ObjectId(id) };
       } else {
-        await MenuItem.findOneAndDelete({ name: id });
+        filter = { name: id };
       }
+      await db.collection("menuitems").deleteOne(filter);
       return res.json({ success: true, message: "Product deleted from database" });
     }
 

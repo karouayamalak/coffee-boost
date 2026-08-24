@@ -1,20 +1,10 @@
 import express from "express";
-import { Order } from "../models/Order.js";
-import { Reservation } from "../models/Reservation.js";
-import { connectDB } from "../config/db.js";
-import mongoose from "mongoose";
+import { getDB } from "../config/db.js";
+import { ObjectId } from "mongodb";
 
 const router = express.Router();
 
 const memoryOrders = [];
-
-// Helper to ensure DB is connected before query
-async function ensureDB() {
-  if (mongoose.connection.readyState !== 1) {
-    await connectDB();
-  }
-  return mongoose.connection.readyState === 1;
-}
 
 // POST /api/orders (create a new order)
 router.post("/orders", async (req, res) => {
@@ -41,10 +31,16 @@ router.post("/orders", async (req, res) => {
 
     const orderData = {
       orderNumber,
-      customerName,
-      customerPhone,
-      customerEmail: customerEmail || "",
-      items,
+      customerName: customerName.trim(),
+      customerPhone: customerPhone.trim(),
+      customerEmail: (customerEmail || "").trim(),
+      items: items.map((i) => ({
+        name: i.name,
+        price: Number(i.price),
+        quantity: Number(i.quantity) || 1,
+        note: i.note || "",
+        image: i.image || "",
+      })),
       total: Number(total) || items.reduce((acc, curr) => acc + (curr.price * (curr.quantity || 1)), 0),
       pickupTime: pickupTime || "As soon as ready (15-20 min)",
       paymentMethod: paymentMethod || "Cash on pickup",
@@ -53,20 +49,23 @@ router.post("/orders", async (req, res) => {
       createdAt: new Date(),
     };
 
-    const isConnected = await ensureDB();
-    if (isConnected) {
+    const db = await getDB();
+    if (db) {
       try {
-        const order = await Order.create(orderData);
+        const result = await db.collection("orders").insertOne(orderData);
+        const createdOrder = { ...orderData, _id: result.insertedId };
+        console.log(`✅ Order ${orderNumber} persisted to MongoDB Atlas!`);
         return res.status(201).json({
           success: true,
           message: "Order placed successfully!",
-          order,
+          order: createdOrder,
         });
       } catch (dbErr) {
-        console.warn("DB create error, falling back to memory:", dbErr.message);
+        console.error("DB insert error, using fallback:", dbErr.message);
       }
     }
 
+    // In-memory fallback
     const memoryItem = { ...orderData, _id: `ord_${Date.now()}` };
     memoryOrders.unshift(memoryItem);
     return res.status(201).json({
@@ -83,13 +82,13 @@ router.post("/orders", async (req, res) => {
 // GET /api/orders (retrieve orders for Owner Dashboard)
 router.get("/orders", async (req, res) => {
   try {
-    const isConnected = await ensureDB();
-    if (isConnected) {
+    const db = await getDB();
+    if (db) {
       try {
-        const orders = await Order.find().sort({ createdAt: -1 });
+        const orders = await db.collection("orders").find().sort({ createdAt: -1 }).toArray();
         return res.json({ success: true, orders, dbConnected: true });
       } catch (dbErr) {
-        console.warn("DB find orders error, falling back to memory:", dbErr.message);
+        console.error("DB find orders error:", dbErr.message);
       }
     }
     return res.json({ success: true, orders: memoryOrders, dbConnected: false });
@@ -109,11 +108,19 @@ router.patch("/orders/:id/status", async (req, res) => {
       return res.status(400).json({ success: false, message: "Invalid status value" });
     }
 
-    const isConnected = await ensureDB();
-    if (isConnected) {
+    const db = await getDB();
+    if (db) {
       try {
-        const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
-        if (order) return res.json({ success: true, order });
+        let filter;
+        if (ObjectId.isValid(id)) {
+          filter = { $or: [{ _id: new ObjectId(id) }, { orderNumber: id }] };
+        } else {
+          filter = { orderNumber: id };
+        }
+        const updated = await db
+          .collection("orders")
+          .findOneAndUpdate(filter, { $set: { status } }, { returnDocument: "after" });
+        if (updated) return res.json({ success: true, order: updated });
       } catch (dbErr) {
         console.warn("DB update status fallback:", dbErr.message);
       }
@@ -135,11 +142,17 @@ router.patch("/orders/:id/status", async (req, res) => {
 router.delete("/orders/:id", async (req, res) => {
   try {
     const { id } = req.params;
-    const isConnected = await ensureDB();
-    if (isConnected) {
+    const db = await getDB();
+    if (db) {
       try {
-        await Order.findByIdAndDelete(id);
-        return res.json({ success: true, message: "Order deleted" });
+        let filter;
+        if (ObjectId.isValid(id)) {
+          filter = { $or: [{ _id: new ObjectId(id) }, { orderNumber: id }] };
+        } else {
+          filter = { orderNumber: id };
+        }
+        await db.collection("orders").deleteOne(filter);
+        return res.json({ success: true, message: "Order deleted from database" });
       } catch (dbErr) {
         console.warn("DB delete fallback:", dbErr.message);
       }
@@ -155,33 +168,37 @@ router.delete("/orders/:id", async (req, res) => {
 // GET /api/stats (Owner Dashboard metrics)
 router.get("/stats", async (req, res) => {
   try {
-    let orders = [];
-    let reservationsCount = 0;
-
-    const isConnected = await ensureDB();
-    if (isConnected) {
+    const db = await getDB();
+    if (db) {
       try {
-        orders = await Order.find();
-        reservationsCount = await Reservation.countDocuments();
+        const orders = await db.collection("orders").find().toArray();
+        const reservationsCount = await db.collection("reservations").countDocuments();
+
+        const totalOrders = orders.length;
+        const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "preparing").length;
+        const totalRevenue = orders.reduce((sum, o) => sum + (Number(o.total) || 0), 0);
+
+        return res.json({
+          success: true,
+          stats: {
+            totalOrders,
+            pendingOrders,
+            totalRevenue,
+            reservationsCount,
+          },
+        });
       } catch (dbErr) {
         console.warn("DB stats error, using memory:", dbErr.message);
-        orders = memoryOrders;
       }
-    } else {
-      orders = memoryOrders;
     }
-
-    const totalOrders = orders.length;
-    const pendingOrders = orders.filter((o) => o.status === "pending" || o.status === "preparing").length;
-    const totalRevenue = orders.reduce((sum, o) => sum + (o.total || 0), 0);
 
     return res.json({
       success: true,
       stats: {
-        totalOrders,
-        pendingOrders,
-        totalRevenue,
-        reservationsCount,
+        totalOrders: memoryOrders.length,
+        pendingOrders: memoryOrders.filter((o) => o.status === "pending" || o.status === "preparing").length,
+        totalRevenue: memoryOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
+        reservationsCount: 0,
       },
     });
   } catch (error) {
@@ -191,7 +208,7 @@ router.get("/stats", async (req, res) => {
       stats: {
         totalOrders: memoryOrders.length,
         pendingOrders: memoryOrders.filter((o) => o.status === "pending" || o.status === "preparing").length,
-        totalRevenue: memoryOrders.reduce((sum, o) => sum + (o.total || 0), 0),
+        totalRevenue: memoryOrders.reduce((sum, o) => sum + (Number(o.total) || 0), 0),
         reservationsCount: 0,
       },
     });

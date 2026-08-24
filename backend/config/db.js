@@ -1,9 +1,9 @@
 import mongoose from "mongoose";
 
-const DEFAULT_URI =
-  "mongodb+srv://akarou_db_user:hOVfINhbMp9mT5WF@coffee-boost.yjsxuri.mongodb.net/boost_coffee?retryWrites=true&w=majority&appName=coffee-boost";
+// Direct non-SRV connection string (never fails with querySrv ECONNREFUSED)
+export const DIRECT_MONGO_URI =
+  "mongodb://akarou_db_user:hOVfINhbMp9mT5WF@ac-bewj1mn-shard-00-00.yjsxuri.mongodb.net:27017,ac-bewj1mn-shard-00-01.yjsxuri.mongodb.net:27017,ac-bewj1mn-shard-00-02.yjsxuri.mongodb.net:27017/boost_coffee?ssl=true&replicaSet=atlas-6z4lcm-shard-0&authSource=admin&retryWrites=true&w=majority";
 
-// Global cache across serverless function invocations
 let cached = global._mongooseCache;
 
 if (!cached) {
@@ -15,7 +15,7 @@ export async function connectDB() {
     return cached.conn;
   }
 
-  const uri = process.env.MONGODB_URI || process.env.MONGO_URI || DEFAULT_URI;
+  const uri = process.env.MONGODB_URI || DIRECT_MONGO_URI;
 
   if (!cached.promise) {
     const opts = {
@@ -27,16 +27,27 @@ export async function connectDB() {
 
     cached.promise = mongoose
       .connect(uri, opts)
-      .then((mongooseInstance) => {
-        console.log(`✅ MongoDB Atlas Connected: ${mongooseInstance.connection.host}`);
-        cached.conn = mongooseInstance;
-        return mongooseInstance;
+      .then((m) => {
+        console.log(`✅ MongoDB Atlas Connected: ${m.connection.host || "replicaSet"}`);
+        cached.conn = m;
+        return m;
       })
-      .catch((err) => {
-        console.error(`❌ MongoDB connection error: ${err.message}`);
-        cached.promise = null;
-        cached.conn = null;
-        return null;
+      .catch(async (err) => {
+        console.warn(`⚠️ Primary URI failed (${err.message}). Trying direct replica set string...`);
+        // Fallback to direct replica set URI
+        return mongoose
+          .connect(DIRECT_MONGO_URI, opts)
+          .then((m) => {
+            console.log("✅ MongoDB Atlas Connected via Direct Replica Set!");
+            cached.conn = m;
+            return m;
+          })
+          .catch((err2) => {
+            console.error(`❌ Both MongoDB connections failed: ${err2.message}`);
+            cached.promise = null;
+            cached.conn = null;
+            return null;
+          });
       });
   }
 
@@ -48,6 +59,14 @@ export async function connectDB() {
   }
 
   return cached.conn;
+}
+
+export async function getDB() {
+  await connectDB();
+  if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+    return mongoose.connection.db;
+  }
+  return null;
 }
 
 export function getDBStatus() {
