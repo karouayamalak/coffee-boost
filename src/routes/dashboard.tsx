@@ -66,17 +66,27 @@ const STATUS_FLOW: Record<string, string> = {
 };
 
 async function fetchOrders(): Promise<Order[]> {
-  const res = await fetch(`${API_BASE}/orders`);
-  if (!res.ok) throw new Error("Failed to fetch orders");
-  const data = await res.json();
-  return data.orders ?? [];
+  try {
+    const res = await fetch(`${API_BASE}/orders`);
+    if (!res.ok) throw new Error("Failed to fetch orders");
+    const data = await res.json();
+    return data.orders ?? [];
+  } catch (err) {
+    console.debug("Dashboard fetchOrders fallback:", err);
+    return [];
+  }
 }
 
 async function fetchStats(): Promise<Stats> {
-  const res = await fetch(`${API_BASE}/stats`);
-  if (!res.ok) throw new Error("Failed to fetch stats");
-  const data = await res.json();
-  return data.stats;
+  try {
+    const res = await fetch(`${API_BASE}/stats`);
+    if (!res.ok) throw new Error("Failed to fetch stats");
+    const data = await res.json();
+    return data.stats || { totalOrders: 0, pendingOrders: 0, totalRevenue: 0, reservationsCount: 0 };
+  } catch (err) {
+    console.debug("Dashboard fetchStats fallback:", err);
+    return { totalOrders: 0, pendingOrders: 0, totalRevenue: 0, reservationsCount: 0 };
+  }
 }
 
 async function updateOrderStatus(id: string, status: string) {

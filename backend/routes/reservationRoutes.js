@@ -6,15 +6,15 @@ const router = express.Router();
 
 const memoryReservations = [];
 
-// POST /api/reservations (reserve a table)
+// POST /api/reservations
 router.post("/reservations", async (req, res) => {
   try {
     const { name, email, phone, guests, date, time, seatingPreference, notes } = req.body;
 
-    if (!name || !email || !phone || !date || !time) {
+    if (!name || !email || !phone || !guests || !date || !time) {
       return res.status(400).json({
         success: false,
-        message: "Name, email, phone, date, and time are required for reservation.",
+        message: "Name, email, phone, guests, date, and time are required.",
       });
     }
 
@@ -22,8 +22,8 @@ router.post("/reservations", async (req, res) => {
       name,
       email,
       phone,
-      guests: Number(guests) || 2,
-      date,
+      guests: Number(guests),
+      date: new Date(date),
       time,
       seatingPreference: seatingPreference || "any",
       notes: notes || "",
@@ -32,19 +32,24 @@ router.post("/reservations", async (req, res) => {
     };
 
     if (mongoose.connection.readyState === 1) {
-      const reservation = await Reservation.create(reservationData);
-      return res.status(201).json({
-        success: true,
-        message: "Table reserved successfully! A confirmation email has been sent.",
-        reservation,
-      });
+      try {
+        const reservation = await Reservation.create(reservationData);
+        return res.status(201).json({
+          success: true,
+          message: "Reservation confirmed successfully!",
+          reservation,
+        });
+      } catch (dbErr) {
+        console.warn("DB reservation error, using memory fallback:", dbErr.message);
+      }
     }
 
-    memoryReservations.push(reservationData);
+    const memoryItem = { ...reservationData, _id: `res_${Date.now()}` };
+    memoryReservations.unshift(memoryItem);
     return res.status(201).json({
       success: true,
-      message: "Table reserved successfully! A confirmation email has been sent.",
-      reservation: reservationData,
+      message: "Reservation confirmed successfully!",
+      reservation: memoryItem,
     });
   } catch (error) {
     console.error("Error creating reservation:", error);
@@ -56,12 +61,16 @@ router.post("/reservations", async (req, res) => {
 router.get("/reservations", async (req, res) => {
   try {
     if (mongoose.connection.readyState === 1) {
-      const reservations = await Reservation.find().sort({ createdAt: -1 });
-      return res.json({ success: true, reservations });
+      try {
+        const reservations = await Reservation.find().sort({ createdAt: -1 });
+        return res.json({ success: true, reservations });
+      } catch (dbErr) {
+        console.warn("DB find reservations error:", dbErr.message);
+      }
     }
     return res.json({ success: true, reservations: memoryReservations });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.json({ success: true, reservations: memoryReservations });
   }
 });
 

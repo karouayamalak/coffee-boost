@@ -45,12 +45,16 @@ router.post("/orders", async (req, res) => {
     };
 
     if (mongoose.connection.readyState === 1) {
-      const order = await Order.create(orderData);
-      return res.status(201).json({
-        success: true,
-        message: "Order placed successfully!",
-        order,
-      });
+      try {
+        const order = await Order.create(orderData);
+        return res.status(201).json({
+          success: true,
+          message: "Order placed successfully!",
+          order,
+        });
+      } catch (dbErr) {
+        console.warn("DB create error, falling back to memory:", dbErr.message);
+      }
     }
 
     const memoryItem = { ...orderData, _id: `ord_${Date.now()}` };
@@ -70,16 +74,21 @@ router.post("/orders", async (req, res) => {
 router.get("/orders", async (req, res) => {
   try {
     if (mongoose.connection.readyState === 1) {
-      const orders = await Order.find().sort({ createdAt: -1 });
-      return res.json({ success: true, orders });
+      try {
+        const orders = await Order.find().sort({ createdAt: -1 });
+        return res.json({ success: true, orders });
+      } catch (dbErr) {
+        console.warn("DB find orders error, falling back to memory:", dbErr.message);
+      }
     }
     return res.json({ success: true, orders: memoryOrders });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.warn("Orders endpoint fallback:", error.message);
+    return res.json({ success: true, orders: memoryOrders });
   }
 });
 
-// PATCH /api/orders/:id/status (update order status: preparing, ready, completed, cancelled)
+// PATCH /api/orders/:id/status
 router.patch("/orders/:id/status", async (req, res) => {
   try {
     const { id } = req.params;
@@ -90,9 +99,12 @@ router.patch("/orders/:id/status", async (req, res) => {
     }
 
     if (mongoose.connection.readyState === 1) {
-      const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
-      if (!order) return res.status(404).json({ success: false, message: "Order not found" });
-      return res.json({ success: true, order });
+      try {
+        const order = await Order.findByIdAndUpdate(id, { status }, { new: true });
+        if (order) return res.json({ success: true, order });
+      } catch (dbErr) {
+        console.warn("DB update status fallback:", dbErr.message);
+      }
     }
 
     const order = memoryOrders.find((o) => o._id === id || o.orderNumber === id);
@@ -100,6 +112,7 @@ router.patch("/orders/:id/status", async (req, res) => {
       order.status = status;
       return res.json({ success: true, order });
     }
+
     return res.status(404).json({ success: false, message: "Order not found" });
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
@@ -111,8 +124,12 @@ router.delete("/orders/:id", async (req, res) => {
   try {
     const { id } = req.params;
     if (mongoose.connection.readyState === 1) {
-      await Order.findByIdAndDelete(id);
-      return res.json({ success: true, message: "Order deleted" });
+      try {
+        await Order.findByIdAndDelete(id);
+        return res.json({ success: true, message: "Order deleted" });
+      } catch (dbErr) {
+        console.warn("DB delete fallback:", dbErr.message);
+      }
     }
     const idx = memoryOrders.findIndex((o) => o._id === id || o.orderNumber === id);
     if (idx >= 0) memoryOrders.splice(idx, 1);
@@ -129,8 +146,13 @@ router.get("/stats", async (req, res) => {
     let reservationsCount = 0;
 
     if (mongoose.connection.readyState === 1) {
-      orders = await Order.find();
-      reservationsCount = await Reservation.countDocuments();
+      try {
+        orders = await Order.find();
+        reservationsCount = await Reservation.countDocuments();
+      } catch (dbErr) {
+        console.warn("DB stats error, using memory:", dbErr.message);
+        orders = memoryOrders;
+      }
     } else {
       orders = memoryOrders;
     }
@@ -149,7 +171,16 @@ router.get("/stats", async (req, res) => {
       },
     });
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    console.warn("Stats endpoint fallback:", error.message);
+    return res.json({
+      success: true,
+      stats: {
+        totalOrders: memoryOrders.length,
+        pendingOrders: memoryOrders.filter((o) => o.status === "pending" || o.status === "preparing").length,
+        totalRevenue: memoryOrders.reduce((sum, o) => sum + (o.total || 0), 0),
+        reservationsCount: 0,
+      },
+    });
   }
 });
 

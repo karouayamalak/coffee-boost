@@ -1,31 +1,43 @@
 import mongoose from "mongoose";
 
-let isConnected = false;
+let cachedPromise = null;
 
 export async function connectDB() {
   const uri = process.env.MONGODB_URI || process.env.MONGO_URI;
   if (!uri) {
-    console.log("ℹ️ MONGODB_URI not provided. Running in memory-store mode.");
     return false;
   }
 
-  try {
-    const conn = await mongoose.connect(uri, {
-      serverSelectionTimeoutMS: 2500,
-    });
-    isConnected = true;
-    console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+  if (mongoose.connection.readyState === 1) {
     return true;
-  } catch (error) {
-    console.warn(`⚠️ MongoDB connection skipped (${error.message}). Operating in high-speed memory mode.`);
-    isConnected = false;
-    return false;
   }
+
+  if (cachedPromise) {
+    return cachedPromise;
+  }
+
+  cachedPromise = mongoose
+    .connect(uri, {
+      bufferCommands: false,
+      serverSelectionTimeoutMS: 3000,
+    })
+    .then((conn) => {
+      console.log(`✅ MongoDB Connected: ${conn.connection.host}`);
+      return true;
+    })
+    .catch((error) => {
+      console.warn(`⚠️ MongoDB connection fallback (${error.message}). Operating in in-memory mode.`);
+      cachedPromise = null;
+      return false;
+    });
+
+  return cachedPromise;
 }
 
 export function getDBStatus() {
+  const isConnected = mongoose.connection.readyState === 1;
   return {
     connected: isConnected,
-    mode: isConnected ? "MongoDB" : "In-Memory Datastore",
+    mode: isConnected ? "MongoDB Atlas" : "In-Memory Datastore",
   };
 }

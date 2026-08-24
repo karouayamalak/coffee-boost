@@ -19,21 +19,26 @@ const PORT = process.env.PORT || 5000;
 // Middleware
 app.use(
   cors({
-    origin: [
-      "http://localhost:8080",
-      "http://localhost:5173",
-      "http://localhost:3000",
-      process.env.CLIENT_URL,
-      /\.vercel\.app$/,
-    ].filter(Boolean),
+    origin: "*",
     credentials: true,
   })
 );
 app.use(express.json());
 
+// Serverless DB Connection Middleware
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+  } catch (err) {
+    console.warn("DB connection notice:", err.message);
+  }
+  next();
+});
+
 // Auto-seed MongoDB with initial Boost Coffee items if connected
+let hasSeeded = false;
 async function seedInitialData() {
-  if (mongoose.connection.readyState !== 1) return;
+  if (hasSeeded || mongoose.connection.readyState !== 1) return;
   try {
     const sampleItem = await MenuItem.findOne();
     if (!sampleItem || sampleItem.price < 50) {
@@ -59,8 +64,9 @@ async function seedInitialData() {
         await Bean.create(bean);
       }
     }
+    hasSeeded = true;
   } catch (err) {
-    console.error("Error seeding initial data:", err);
+    console.warn("Notice seeding initial data:", err.message);
   }
 }
 
@@ -91,23 +97,21 @@ app.get("/", (req, res) => {
       "/api/menu",
       "/api/beans",
       "/api/orders",
+      "/api/stats",
       "/api/reservations",
       "/api/contact",
     ],
   });
 });
 
-// Start server
-async function startServer() {
-  await connectDB();
-  await seedInitialData();
-
-  app.listen(PORT, () => {
-    console.log(`☕ Boost Coffee Backend running on http://localhost:${PORT}`);
-    console.log(`🚀 Health check at http://localhost:${PORT}/api/health`);
+// Start local dev server if not in Vercel serverless environment
+if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
+  connectDB().then(() => {
+    seedInitialData();
+    app.listen(PORT, () => {
+      console.log(`☕ Boost Coffee Backend running on http://localhost:${PORT}`);
+    });
   });
 }
-
-startServer();
 
 export default app;
