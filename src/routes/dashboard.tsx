@@ -700,44 +700,7 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
                         />
                       </div>
 
-                      {/* Image Preview & Quick Presets */}
-                      <div className="mt-3">
-                        <p className="text-[11px] font-semibold text-muted-foreground mb-1.5">
-                          Quick Presets:
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          {[
-                            { name: "Iced Caramel", url: "/items/drink-iced-caramel.png" },
-                            { name: "Matcha Latte", url: "/items/item-strawberry-matcha.png" },
-                            { name: "Mocha Frappé", url: "/items/item-iced-mocha.png" },
-                            { name: "Espresso", url: "/items/item-espresso-crema.png" },
-                            { name: "Cheesecake", url: "/items/item-basque-cheesecake.png" },
-                            { name: "Choc Cake", url: "/items/item-chocolate-cake.png" },
-                            { name: "Croissant", url: "/items/item-croissant.png" },
-                            { name: "Cookie", url: "/items/item-cookie.png" },
-                            { name: "Brookie", url: "/items/item-brookie.png" },
-                            { name: "Cinnamon Roll", url: "/items/item-cinnamon-roll.png" },
-                            { name: "Salmon Toast", url: "/items/item-salmon-toast.png" },
-                            { name: "Avocado Toast", url: "/items/item-avocado-ricotta.png" },
-                            { name: "Caesar Salad", url: "/items/item-caesar-salad.png" },
-                            { name: "Belgian Waffle", url: "/items/item-belgian-waffle.png" },
-                          ].map((p) => (
-                            <button
-                              type="button"
-                              key={p.name}
-                              onClick={() => setNewProductImage(p.url)}
-                              className={`flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-all ${
-                                newProductImage === p.url
-                                  ? "border-primary bg-primary/10 text-primary font-bold shadow-sm scale-105"
-                                  : "border-border bg-card text-muted-foreground hover:bg-secondary"
-                              }`}
-                            >
-                              <img src={p.url} alt={p.name} className="h-4 w-4 object-contain" />
-                              <span>{p.name}</span>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
+
 
                       {/* Image Preview if selected */}
                       {newProductImage && (
