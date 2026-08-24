@@ -195,6 +195,7 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
   const [newProductBadge, setNewProductBadge] = useState("");
   const [newProductImage, setNewProductImage] = useState("");
   const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
 
   // Queries
   const { data: ordersResult, isLoading: ordersLoading } = useQuery({
@@ -687,37 +688,58 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
                         Product Picture (Upload file, choose a preset, or paste URL)
                       </label>
 
-                      {/* File upload input */}
+                      {/* File upload → Cloudinary */}
                       <div className="flex items-center gap-3">
-                        <label className="cursor-pointer rounded-2xl border border-dashed border-primary/50 bg-primary/5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 transition-colors">
-                          📁 Upload from Computer
+                        <label className={`cursor-pointer rounded-2xl border border-dashed border-primary/50 bg-primary/5 px-4 py-2 text-xs font-bold text-primary hover:bg-primary/10 transition-colors ${
+                          isUploadingImage ? "opacity-60 pointer-events-none" : ""
+                        }`}>
+                          {isUploadingImage ? "☁️ Uploading..." : "📁 Upload to Cloudinary"}
                           <input
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => {
+                            disabled={isUploadingImage}
+                            onChange={async (e) => {
                               const file = e.target.files?.[0];
-                              if (file) {
-                                if (file.size > 2 * 1024 * 1024) {
-                                  toast.error("Please choose an image under 2MB");
-                                  return;
+                              if (!file) return;
+                              if (file.size > 10 * 1024 * 1024) {
+                                toast.error("Please choose an image under 10MB");
+                                return;
+                              }
+                              setIsUploadingImage(true);
+                              try {
+                                // Convert to base64 data URI
+                                const base64 = await new Promise<string>((resolve, reject) => {
+                                  const reader = new FileReader();
+                                  reader.onload = () => resolve(reader.result as string);
+                                  reader.onerror = reject;
+                                  reader.readAsDataURL(file);
+                                });
+                                // Upload to Cloudinary via backend
+                                const res = await fetch(`${API_BASE}/upload`, {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ data: base64 }),
+                                });
+                                const result = await res.json();
+                                if (!res.ok || !result.success) {
+                                  throw new Error(result.message || "Upload failed");
                                 }
-                                const reader = new FileReader();
-                                reader.onload = () => {
-                                  if (typeof reader.result === "string") {
-                                    setNewProductImage(reader.result);
-                                    toast.success("Image uploaded!");
-                                  }
-                                };
-                                reader.readAsDataURL(file);
+                                setNewProductImage(result.url);
+                                toast.success("✅ Uploaded to Cloudinary!", { description: result.url.slice(0, 60) + "..." });
+                              } catch (err: any) {
+                                toast.error("Upload failed: " + (err.message || "Unknown error"));
+                              } finally {
+                                setIsUploadingImage(false);
+                                e.target.value = "";
                               }
                             }}
                           />
                         </label>
-                        <span className="text-[11px] text-muted-foreground">or enter URL:</span>
+                        <span className="text-[11px] text-muted-foreground">or paste URL:</span>
                         <input
                           type="text"
-                          placeholder="/items/... or https://..."
+                          placeholder="https://res.cloudinary.com/... or /items/..."
                           value={newProductImage}
                           onChange={(e) => setNewProductImage(e.target.value)}
                           className="flex-1 rounded-2xl border border-input bg-background px-3 py-1.5 text-xs focus:ring-2 focus:ring-primary"

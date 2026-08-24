@@ -6,6 +6,7 @@ import menuRoutes from "./routes/menuRoutes.js";
 import orderRoutes from "./routes/orderRoutes.js";
 import reservationRoutes from "./routes/reservationRoutes.js";
 import contactRoutes from "./routes/contactRoutes.js";
+import uploadRoutes from "./routes/uploadRoutes.js";
 import { MenuItem } from "./models/MenuItem.js";
 import { Bean } from "./models/Bean.js";
 import { initialMenuSections, initialBeans } from "./seed/data.js";
@@ -87,6 +88,7 @@ app.use("/api", menuRoutes);
 app.use("/api", orderRoutes);
 app.use("/api", reservationRoutes);
 app.use("/api", contactRoutes);
+app.use("/api", uploadRoutes);
 
 // Root route
 app.get("/", (req, res) => {
