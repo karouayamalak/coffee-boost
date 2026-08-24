@@ -9,7 +9,7 @@ export const initialMenuSections = [
         price: 520,
         category: "Drinks & Specialty Brews",
         badge: "Signature",
-        image: "/items/drink-iced-caramel.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609330/boost-coffee/items/drink-iced-caramel.png",
       },
       {
         id: "d2",
@@ -18,7 +18,7 @@ export const initialMenuSections = [
         price: 580,
         category: "Drinks & Specialty Brews",
         badge: "Popular",
-        image: "/items/item-strawberry-matcha.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609526/boost-coffee/items/item-strawberry-matcha.png",
       },
       {
         id: "d3",
@@ -27,7 +27,7 @@ export const initialMenuSections = [
         price: 540,
         category: "Drinks & Specialty Brews",
         badge: "Iced Special",
-        image: "/items/item-iced-mocha.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609465/boost-coffee/items/item-iced-mocha.png",
       },
       {
         id: "d4",
@@ -36,7 +36,7 @@ export const initialMenuSections = [
         price: 350,
         category: "Drinks & Specialty Brews",
         badge: "Classic",
-        image: "/items/item-espresso-crema.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609446/boost-coffee/items/item-espresso-crema.png",
       },
     ],
   },
@@ -50,7 +50,7 @@ export const initialMenuSections = [
         price: 550,
         category: "Desserts, Cakes & Bakery",
         badge: "Chef Special",
-        image: "/items/item-basque-cheesecake.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609385/boost-coffee/items/item-basque-cheesecake.png",
       },
       {
         id: "b2",
@@ -59,7 +59,7 @@ export const initialMenuSections = [
         price: 480,
         category: "Desserts, Cakes & Bakery",
         badge: "Decadent",
-        image: "/items/item-chocolate-cake.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609422/boost-coffee/items/item-chocolate-cake.png",
       },
       {
         id: "b3",
@@ -67,7 +67,7 @@ export const initialMenuSections = [
         note: "Crushed Oreo biscuit crust, rich cream cheese filling, Oreo crumble & dark chocolate drizzle",
         price: 460,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-oreo-cheesecake.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609466/boost-coffee/items/item-oreo-cheesecake.png",
       },
       {
         id: "b4",
@@ -75,7 +75,7 @@ export const initialMenuSections = [
         note: "Baked New York style cheesecake on graham cracker crust with fresh strawberry glaze & mint",
         price: 450,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-strawberry-cheesecake.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609525/boost-coffee/items/item-strawberry-cheesecake.png",
       },
       {
         id: "b5",
@@ -84,7 +84,7 @@ export const initialMenuSections = [
         price: 420,
         category: "Desserts, Cakes & Bakery",
         badge: "House Special",
-        image: "/items/item-chocolate-lava.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609426/boost-coffee/items/item-chocolate-lava.png",
       },
       {
         id: "b6",
@@ -92,7 +92,7 @@ export const initialMenuSections = [
         note: "Soft pink mochi filled with whipped cream, strawberry compote core, chocolate crunch & freeze-dried strawberries",
         price: 380,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-strawberry-mochi.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609527/boost-coffee/items/item-strawberry-mochi.png",
       },
       {
         id: "b7",
@@ -101,7 +101,7 @@ export const initialMenuSections = [
         price: 260,
         category: "Desserts, Cakes & Bakery",
         badge: "Fresh Daily",
-        image: "/items/item-croissant.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609441/boost-coffee/items/item-croissant.png",
       },
       {
         id: "b8",
@@ -110,7 +110,7 @@ export const initialMenuSections = [
         price: 240,
         category: "Desserts, Cakes & Bakery",
         badge: "Best Seller",
-        image: "/items/item-cookie.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609439/boost-coffee/items/item-cookie.png",
       },
       {
         id: "b9",
@@ -118,7 +118,7 @@ export const initialMenuSections = [
         note: "Dense 70% dark chocolate brownie cookie packed with melted chocolate chunks",
         price: 300,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-brookie.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609401/boost-coffee/items/item-brookie.png",
       },
       {
         id: "b10",
@@ -126,7 +126,7 @@ export const initialMenuSections = [
         note: "Warm cinnamon cardamom swirl bun with rich vanilla cream cheese glaze",
         price: 280,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-cinnamon-roll.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609432/boost-coffee/items/item-cinnamon-roll.png",
       },
       {
         id: "b11",
@@ -134,7 +134,7 @@ export const initialMenuSections = [
         note: "Soft fluffy yeast donut coated in honey sugar glaze",
         price: 220,
         category: "Desserts, Cakes & Bakery",
-        image: "/items/item-glazed-donut.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609454/boost-coffee/items/item-glazed-donut.png",
       },
     ],
   },
@@ -148,7 +148,7 @@ export const initialMenuSections = [
         price: 680,
         category: "Savory & Breakfast Plates",
         badge: "Chef Pick",
-        image: "/items/item-salmon-toast.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609481/boost-coffee/items/item-salmon-toast.png",
       },
       {
         id: "s2",
@@ -157,7 +157,7 @@ export const initialMenuSections = [
         price: 580,
         category: "Savory & Breakfast Plates",
         badge: "Vegetarian",
-        image: "/items/item-avocado-ricotta.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609360/boost-coffee/items/item-avocado-ricotta.png",
       },
       {
         id: "s3",
@@ -166,7 +166,7 @@ export const initialMenuSections = [
         price: 650,
         category: "Savory & Breakfast Plates",
         badge: "Healthy",
-        image: "/items/item-caesar-salad.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609413/boost-coffee/items/item-caesar-salad.png",
       },
       {
         id: "s4",
@@ -175,7 +175,7 @@ export const initialMenuSections = [
         price: 450,
         category: "Savory & Breakfast Plates",
         badge: "Warm Breakfast",
-        image: "/items/item-belgian-waffle.png",
+        image: "https://res.cloudinary.com/dpvzrczch/image/upload/v1787609395/boost-coffee/items/item-belgian-waffle.png",
       },
     ],
   },
