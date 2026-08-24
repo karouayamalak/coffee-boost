@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
-import { fetchBeans, formatPrice, FALLBACK_BEANS, type BeanItem } from "@/lib/api";
+import { fetchMenu, fetchBeans, formatPrice, FALLBACK_BEANS, FALLBACK_MENU_SECTIONS, type BeanItem } from "@/lib/api";
 import { useCart } from "@/components/cart-order-modal";
 import { toast } from "sonner";
 
@@ -30,56 +30,27 @@ import itemAvocadoRicotta from "@/assets/item-avocado-ricotta.png";
 import itemCaesarSalad from "@/assets/item-caesar-salad.png";
 import itemBelgianWaffle from "@/assets/item-belgian-waffle.png";
 
-export interface MenuItemData {
-  id: string;
-  name: string;
-  note: string;
-  price: number;
-  badge?: string;
-  image: string;
-}
-
-export interface MenuSectionData {
-  title: string;
-  items: MenuItemData[];
-}
-
-export const FULL_MENU: MenuSectionData[] = [
-  {
-    title: "Drinks & Specialty Brews",
-    items: [
-      { id: "d1", name: "Iced Caramel Macchiato", note: "Layered espresso over chilled whole milk with caramel drizzle, ice cubes & cinnamon dusting", price: 520, badge: "Signature", image: itemIcedCaramel },
-      { id: "d2", name: "Iced Strawberry Matcha Latte", note: "Ceremonial grade Japanese matcha, fresh milk, organic strawberry purée, heart ice cubes & sliced strawberries", price: 580, badge: "Popular", image: itemStrawberryMatcha },
-      { id: "d3", name: "Iced Dark Mocha Frappé", note: "Blended double espresso, rich dark chocolate fudge, whipped coffee cloud & chocolate curls", price: 540, badge: "Iced Special", image: itemIcedMocha },
-      { id: "d4", name: "Espresso Crema Roast", note: "Pure double shot small batch roast with thick golden hazelnut crema", price: 350, badge: "Classic", image: itemEspressoCrema },
-    ],
-  },
-  {
-    title: "Desserts, Cakes & Bakery",
-    items: [
-      { id: "b1", name: "Basque Burnt Cheesecake", note: "Caramelised Basque cheesecake served warm with melted salted caramel & vanilla bean ice cream scoop", price: 550, badge: "Chef Special", image: itemBasqueCheesecake },
-      { id: "b2", name: "Triple Chocolate Fudge Cake Slice", note: "Three layers moist chocolate sponge, dark chocolate ganache & chocolate curls", price: 480, badge: "Decadent", image: itemChocolateCake },
-      { id: "b3", name: "Oreo Cookies & Cream Cheesecake", note: "Crushed Oreo biscuit crust, rich cream cheese filling, Oreo crumble & dark chocolate drizzle", price: 460, image: itemOreoCheesecake },
-      { id: "b4", name: "Strawberry New York Cheesecake", note: "Baked New York style cheesecake on graham cracker crust with fresh strawberry glaze & mint", price: 450, image: itemStrawberryCheesecake },
-      { id: "b5", name: "Molten Chocolate Lava Dome", note: "Dark chocolate shell filled with airy chocolate mousse, hot molten lava center & roasted cacao nibs", price: 420, badge: "House Special", image: itemChocolateLava },
-      { id: "b6", name: "Strawberry Cream Daifuku Mochi", note: "Soft pink mochi filled with whipped cream, strawberry compote core, chocolate crunch & freeze-dried strawberries", price: 380, image: itemStrawberryMochi },
-      { id: "b7", name: "Classic French Butter Croissant", note: "Flaky all-butter golden French pastry, baked fresh every morning at 6am", price: 260, badge: "Fresh Daily", image: itemCroissant },
-      { id: "b8", name: "Choc-Chip Sea Salt Cookie", note: "Soft-baked golden cookie with Belgian milk chocolate chunks & Maldon sea salt crystals", price: 240, badge: "Best Seller", image: itemCookie },
-      { id: "b9", name: "Dark Chocolate Chunk Brookie", note: "Dense 70% dark chocolate brownie cookie packed with melted chocolate chunks", price: 300, image: itemBrookie },
-      { id: "b10", name: "Glazed Cinnamon Roll Swirl", note: "Warm cinnamon cardamom swirl bun with rich vanilla cream cheese glaze", price: 280, image: itemCinnamonRoll },
-      { id: "b11", name: "Golden Glazed Honey Donut", note: "Soft fluffy yeast donut coated in honey sugar glaze", price: 220, image: itemGlazedDonut },
-    ],
-  },
-  {
-    title: "Savory & Breakfast Plates",
-    items: [
-      { id: "s1", name: "Smoked Salmon & Cream Cheese Toast", note: "Artisan toasted sourdough, whipped cream cheese, Atlantic smoked salmon & cracked black pepper", price: 680, badge: "Chef Pick", image: itemSalmonToast },
-      { id: "s2", name: "Avocado Ricotta Sourdough Toast", note: "Sliced fresh avocado on whipped ricotta spread, extra virgin olive oil, herbs & hemp seeds", price: 580, badge: "Vegetarian", image: itemAvocadoRicotta },
-      { id: "s3", name: "Grilled Chicken Caesar Salad Bowl", note: "Marinated grilled chicken breast, crisp romaine lettuce, shaved parmesan, garlic croutons & house Caesar dressing", price: 650, badge: "Healthy", image: itemCaesarSalad },
-      { id: "s4", name: "Belgian Butter Waffle with Maple Syrup", note: "Crispy golden Belgian waffle served warm with butter pad & pure maple syrup", price: 450, badge: "Warm Breakfast", image: itemBelgianWaffle },
-    ],
-  },
-];
+const ASSET_MAP: Record<string, string> = {
+  "Iced Caramel Macchiato": itemIcedCaramel,
+  "Iced Strawberry Matcha Latte": itemStrawberryMatcha,
+  "Iced Dark Mocha Frappé": itemIcedMocha,
+  "Espresso Crema Roast": itemEspressoCrema,
+  "Basque Burnt Cheesecake": itemBasqueCheesecake,
+  "Triple Chocolate Fudge Cake Slice": itemChocolateCake,
+  "Oreo Cookies & Cream Cheesecake": itemOreoCheesecake,
+  "Strawberry New York Cheesecake": itemStrawberryCheesecake,
+  "Molten Chocolate Lava Dome": itemChocolateLava,
+  "Strawberry Cream Daifuku Mochi": itemStrawberryMochi,
+  "Classic French Butter Croissant": itemCroissant,
+  "Choc-Chip Sea Salt Cookie": itemCookie,
+  "Dark Chocolate Chunk Brookie": itemBrookie,
+  "Glazed Cinnamon Roll Swirl": itemCinnamonRoll,
+  "Golden Glazed Honey Donut": itemGlazedDonut,
+  "Smoked Salmon & Cream Cheese Toast": itemSalmonToast,
+  "Avocado Ricotta Sourdough Toast": itemAvocadoRicotta,
+  "Grilled Chicken Caesar Salad Bowl": itemCaesarSalad,
+  "Belgian Butter Waffle with Maple Syrup": itemBelgianWaffle,
+};
 
 export const Route = createFileRoute("/menu")({
   head: () => ({
@@ -98,27 +69,29 @@ function MenuPage() {
   const { addItem, openCart } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
 
+  const { data: menuSections = FALLBACK_MENU_SECTIONS } = useQuery({
+    queryKey: ["menu"],
+    queryFn: fetchMenu,
+    staleTime: 1000 * 60 * 2,
+  });
+
   const { data: beans = FALLBACK_BEANS } = useQuery({
     queryKey: ["beans"],
     queryFn: fetchBeans,
     staleTime: 1000 * 60 * 5,
   });
 
-  const handleAddItem = (item: { name: string; price: number; note?: string | undefined; image?: string | undefined }) => {
-    addItem({ name: item.name, price: item.price, note: item.note, image: item.image });
+  const handleAddItem = (item: { name: string; price: number | string; note?: string | undefined; image?: string | undefined }) => {
+    const resolvedImg = item.image || ASSET_MAP[item.name] || itemCroissant;
+    addItem({ name: item.name, price: item.price, note: item.note, image: resolvedImg });
     toast.success(`Added ${item.name}!`, { description: "See your order in the cart.", duration: 2000 });
   };
 
-  const categoryMap: Record<string, string> = {
-    "All": "All",
-    "Drinks": "Drinks & Specialty Brews",
-    "Desserts": "Desserts, Cakes & Bakery",
-    "Savory": "Savory & Breakfast Plates",
-  };
-
   const filteredSections = selectedCategory === "All"
-    ? FULL_MENU
-    : FULL_MENU.filter(s => s.title === categoryMap[selectedCategory]);
+    ? menuSections
+    : menuSections.filter((s) => s.title.toLowerCase().includes(selectedCategory.toLowerCase()));
+
+  const totalItemsCount = menuSections.reduce((acc, s) => acc + s.items.length, 0);
 
   return (
     <>
@@ -143,69 +116,78 @@ function MenuPage() {
                   : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
               }`}
             >
-              {cat === "All" ? "All Items (19)" : cat === "Desserts" ? "Desserts & Cakes (11)" : cat === "Savory" ? "Savory & Plates (4)" : "Drinks & Brews (4)"}
+              {cat === "All"
+                ? `All Items (${totalItemsCount})`
+                : cat === "Desserts"
+                ? "Desserts & Cakes"
+                : cat === "Savory"
+                ? "Savory & Plates"
+                : "Drinks & Brews"}
             </button>
           ))}
         </div>
 
-        {/* Menu Sections */}
+        {/* Dynamic Menu Sections */}
         <div className="mt-10 space-y-12">
           {filteredSections.map((section) => (
             <div key={section.title}>
               <h2 className="eyebrow text-marker text-sm uppercase tracking-wider mb-4">
-                {section.title}
+                {section.title} ({section.items.length})
               </h2>
 
               <div className="divide-y divide-border/60 border-y border-border/60">
-                {section.items.map((item) => (
-                  <div
-                    key={item.id}
-                    className="group flex items-center gap-4 py-3.5 px-2 transition-colors hover:bg-card/40 rounded-2xl"
-                  >
-                    {/* Free-floating transparent PNG food picture */}
-                    <div className="shrink-0 h-16 w-16 flex items-center justify-center">
-                      <img
-                        src={item.image}
-                        alt={item.name}
-                        className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
-                      />
-                    </div>
-
-                    {/* Name & Note */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-display text-base md:text-lg font-bold text-foreground leading-tight">
-                          {item.name}
-                        </span>
-                        {item.badge && (
-                          <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap">
-                            {item.badge}
-                          </span>
-                        )}
+                {section.items.map((item) => {
+                  const itemImg = item.image || ASSET_MAP[item.name] || itemCroissant;
+                  return (
+                    <div
+                      key={item.id || item._id || item.name}
+                      className="group flex items-center gap-4 py-3.5 px-2 transition-colors hover:bg-card/40 rounded-2xl"
+                    >
+                      {/* Free-floating transparent PNG food picture */}
+                      <div className="shrink-0 h-16 w-16 flex items-center justify-center">
+                        <img
+                          src={itemImg}
+                          alt={item.name}
+                          className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
+                        />
                       </div>
-                      <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">
-                        {item.note}
-                      </p>
-                    </div>
 
-                    {/* Dotted leader */}
-                    <span className="hidden md:block flex-1 max-w-[80px] border-b border-dotted border-border/80 mx-2 shrink-0" />
+                      {/* Name & Note */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-display text-base md:text-lg font-bold text-foreground leading-tight">
+                            {item.name}
+                          </span>
+                          {item.badge && (
+                            <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+                          {item.note}
+                        </p>
+                      </div>
 
-                    {/* Price & Add */}
-                    <div className="flex items-center gap-3 shrink-0">
-                      <span className="font-display text-base md:text-lg font-bold text-primary whitespace-nowrap">
-                        {formatPrice(item.price)}
-                      </span>
-                      <button
-                        onClick={() => handleAddItem(item)}
-                        className="rounded-full bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground transition-all hover:scale-105 active:scale-95 hover:bg-primary hover:text-primary-foreground whitespace-nowrap"
-                        aria-label={`Add ${item.name} to order`}
-                      >
-                        + Add
-                      </button>
+                      {/* Dotted leader */}
+                      <span className="hidden md:block flex-1 max-w-[80px] border-b border-dotted border-border/80 mx-2 shrink-0" />
+
+                      {/* Price & Add */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-display text-base md:text-lg font-bold text-primary whitespace-nowrap">
+                          {formatPrice(item.price)}
+                        </span>
+                        <button
+                          onClick={() => handleAddItem(item)}
+                          className="rounded-full bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground transition-all hover:scale-105 active:scale-95 hover:bg-primary hover:text-primary-foreground whitespace-nowrap"
+                          aria-label={`Add ${item.name} to order`}
+                        >
+                          + Add
+                        </button>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ))}

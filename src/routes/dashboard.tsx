@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
-import { formatPrice } from "@/lib/api";
+import { formatPrice, fetchMenu, addMenuItem, deleteMenuItem } from "@/lib/api";
 
 export const Route = createFileRoute("/dashboard")({
   head: () => ({
@@ -105,37 +105,24 @@ async function deleteOrder(id: string) {
   return res.json();
 }
 
-function StatCard({ label, value, sub, color }: { label: string; value: string | number; sub?: string; color: string }) {
-  return (
-    <div className={`rounded-3xl p-6 ${color}`}>
-      <p className="text-xs font-semibold uppercase tracking-widest opacity-70">{label}</p>
-      <p className="mt-2 text-4xl font-bold">{value}</p>
-      {sub && <p className="mt-1 text-xs opacity-60">{sub}</p>}
-    </div>
-  );
-}
-
 function ProtectedDashboardPage() {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [pinInput, setPinInput] = useState<string>("");
-  const [errorMsg, setErrorMsg] = useState<string>("");
-
-  useEffect(() => {
-    const auth = sessionStorage.getItem("boost_owner_auth");
-    if (auth === "true") {
-      setIsAuthenticated(true);
-    }
-  }, []);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return sessionStorage.getItem("boost_owner_auth") === "true";
+  });
+  const [pinInput, setPinInput] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (pinInput === OWNER_PIN || pinInput === "1234") {
+    if (pinInput.trim() === OWNER_PIN || pinInput.trim() === "1234") {
       sessionStorage.setItem("boost_owner_auth", "true");
       setIsAuthenticated(true);
       setErrorMsg("");
-      toast.success("Welcome back, Owner.");
+      toast.success("Owner unlocked successfully");
     } else {
-      setErrorMsg("Incorrect access code. Please try again.");
+      setErrorMsg("Incorrect PIN. Please try again.");
+      toast.error("Incorrect PIN");
     }
   };
 
@@ -143,6 +130,7 @@ function ProtectedDashboardPage() {
     sessionStorage.removeItem("boost_owner_auth");
     setIsAuthenticated(false);
     setPinInput("");
+    toast.info("Dashboard locked");
   };
 
   if (!isAuthenticated) {
@@ -152,7 +140,7 @@ function ProtectedDashboardPage() {
           <p className="eyebrow text-primary">Private Portal</p>
           <h1 className="mt-2 text-2xl font-display font-bold">Owner Access Only</h1>
           <p className="mt-2 text-xs text-muted-foreground">
-            Please enter your management PIN to view live orders and business stats.
+            Please enter your management PIN to view live orders and manage menu products.
           </p>
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
@@ -187,20 +175,38 @@ function ProtectedDashboardPage() {
 
 function DashboardView({ onLogout }: { onLogout: () => void }) {
   const qc = useQueryClient();
+  const [mainView, setMainView] = useState<"orders" | "products">("orders");
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "preparing" | "ready" | "completed">("all");
 
-  const { data: orders = [], isLoading: ordersLoading, error: ordersError } = useQuery({
+  // New product form state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newProductName, setNewProductName] = useState("");
+  const [newProductCategory, setNewProductCategory] = useState("Drinks & Specialty Brews");
+  const [newProductPrice, setNewProductPrice] = useState("");
+  const [newProductNote, setNewProductNote] = useState("");
+  const [newProductBadge, setNewProductBadge] = useState("");
+  const [newProductImage, setNewProductImage] = useState("");
+  const [isSubmittingProduct, setIsSubmittingProduct] = useState(false);
+
+  // Queries
+  const { data: orders = [], isLoading: ordersLoading } = useQuery({
     queryKey: ["dashboard-orders"],
     queryFn: fetchOrders,
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
 
   const { data: stats } = useQuery({
     queryKey: ["dashboard-stats"],
     queryFn: fetchStats,
-    refetchInterval: 15_000,
+    refetchInterval: 10_000,
   });
 
+  const { data: menuSections = [] } = useQuery({
+    queryKey: ["menu"],
+    queryFn: fetchMenu,
+  });
+
+  // Mutations
   const statusMutation = useMutation({
     mutationFn: ({ id, status }: { id: string; status: string }) => updateOrderStatus(id, status),
     onSuccess: () => {
@@ -221,9 +227,56 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
     onError: () => toast.error("Failed to remove order"),
   });
 
-  const TABS = ["all", "pending", "preparing", "ready", "completed"] as const;
+  const addProductMutation = useMutation({
+    mutationFn: addMenuItem,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["menu"] });
+      toast.success("Product added to menu!");
+      setShowAddModal(false);
+      setNewProductName("");
+      setNewProductPrice("");
+      setNewProductNote("");
+      setNewProductBadge("");
+      setNewProductImage("");
+    },
+    onError: (err: any) => {
+      toast.error(err.message || "Failed to add product");
+    },
+  });
 
-  const filtered = activeTab === "all" ? orders : orders.filter((o) => o.status === activeTab);
+  const deleteProductMutation = useMutation({
+    mutationFn: deleteMenuItem,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["menu"] });
+      toast.success("Product removed from menu");
+    },
+    onError: () => toast.error("Failed to delete product"),
+  });
+
+  const handleAddProductSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName.trim() || !newProductPrice) {
+      toast.error("Please enter product name and price");
+      return;
+    }
+    setIsSubmittingProduct(true);
+    addProductMutation.mutate(
+      {
+        name: newProductName.trim(),
+        category: newProductCategory,
+        price: Number(newProductPrice),
+        note: newProductNote.trim(),
+        badge: newProductBadge.trim() || undefined,
+        image: newProductImage.trim() || undefined,
+      },
+      {
+        onSettled: () => setIsSubmittingProduct(false),
+      }
+    );
+  };
+
+  const TABS = ["all", "pending", "preparing", "ready", "completed"] as const;
+  const filteredOrders = activeTab === "all" ? orders : orders.filter((o) => o.status === activeTab);
 
   return (
     <div className="min-h-screen bg-background">
@@ -234,20 +287,38 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
             <p className="eyebrow text-primary">Management Portal</p>
             <h1 className="mt-1 text-3xl md:text-4xl font-display font-bold">Owner Dashboard</h1>
             <p className="mt-1 text-xs text-muted-foreground">
-              Live orders and performance. Auto-refreshes every 15 seconds.
+              Live orders and menu product management in Algerian Dinars (DA).
             </p>
           </div>
-          <button
-            onClick={onLogout}
-            className="rounded-full border border-border px-4 py-1.5 text-xs font-semibold hover:bg-secondary transition-colors"
-          >
-            Lock Dashboard
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setMainView("orders")}
+              className={`rounded-full px-5 py-2 text-xs font-bold transition-all ${
+                mainView === "orders" ? "bg-primary text-primary-foreground shadow-sm" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Live Orders ({orders.filter((o) => o.status === "pending" || o.status === "preparing").length})
+            </button>
+            <button
+              onClick={() => setMainView("products")}
+              className={`rounded-full px-5 py-2 text-xs font-bold transition-all ${
+                mainView === "products" ? "bg-primary text-primary-foreground shadow-sm" : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+              }`}
+            >
+              Manage Products & Menu
+            </button>
+            <button
+              onClick={onLogout}
+              className="rounded-full border border-border px-4 py-2 text-xs font-semibold hover:bg-secondary transition-colors"
+            >
+              Lock
+            </button>
+          </div>
         </div>
       </div>
 
       <div className="mx-auto max-w-6xl px-6 py-10">
-        {/* Stats row */}
+        {/* STATS OVERVIEW ROW */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
           <StatCard
             label="Total Orders"
@@ -257,7 +328,7 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
           <StatCard
             label="Active Orders"
             value={stats?.pendingOrders ?? orders.filter((o) => o.status === "pending" || o.status === "preparing").length}
-            sub="Pending and preparing"
+            sub="Pending & preparing"
             color="bg-amber-50 text-amber-900"
           />
           <StatCard
@@ -267,161 +338,383 @@ function DashboardView({ onLogout }: { onLogout: () => void }) {
             color="bg-green-50 text-green-900"
           />
           <StatCard
-            label="Reservations"
-            value={stats?.reservationsCount ?? 0}
+            label="Menu Items"
+            value={menuSections.reduce((acc, s) => acc + s.items.length, 0)}
+            sub="Active products"
             color="bg-secondary text-foreground"
           />
         </div>
 
-        {/* Tab filter */}
-        <div className="mt-10 flex flex-wrap items-center gap-2">
-          {TABS.map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition-colors ${
-                activeTab === tab
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-              }`}
-            >
-              {tab}
-              {tab !== "all" && (
-                <span className="ml-1.5 rounded-full bg-white/20 px-1.5 text-[10px]">
-                  {orders.filter((o) => o.status === tab).length}
-                </span>
-              )}
-            </button>
-          ))}
-          <button
-            onClick={() => {
-              qc.invalidateQueries({ queryKey: ["dashboard-orders"] });
-              qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
-            }}
-            className="ml-auto rounded-full border border-border px-4 py-1.5 text-xs font-semibold hover:bg-secondary transition-colors"
-          >
-            Refresh Data
-          </button>
-        </div>
-
-        {/* Orders list */}
-        <div className="mt-6 space-y-4">
-          {ordersLoading && (
-            <div className="py-20 text-center text-muted-foreground text-sm">
-              Loading orders...
-            </div>
-          )}
-          {ordersError && (
-            <div className="rounded-2xl border border-red-200 bg-red-50 p-6 text-center text-xs text-red-700">
-              Could not connect to backend server. Ensure the backend is active on port 5000.
-            </div>
-          )}
-          {!ordersLoading && !ordersError && filtered.length === 0 && (
-            <div className="py-20 text-center text-muted-foreground text-sm">
-              No orders found for this status.
-            </div>
-          )}
-
-          {filtered.map((order) => (
-            <div
-              key={order._id || order.orderNumber}
-              className="rounded-3xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                {/* Left: order info */}
-                <div>
-                  <div className="flex items-center gap-3">
-                    <span className="font-display text-lg font-bold">{order.orderNumber}</span>
-                    <span className={`rounded-full px-3 py-0.5 text-xs font-bold capitalize ${STATUS_COLORS[order.status] ?? "bg-gray-100"}`}>
-                      {order.status}
+        {/* ─── VIEW 1: ORDERS TERMINAL ──────────────────────────────── */}
+        {mainView === "orders" && (
+          <div className="mt-10">
+            {/* Tab filter */}
+            <div className="flex flex-wrap items-center gap-2">
+              {TABS.map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full px-4 py-1.5 text-xs font-semibold capitalize transition-colors ${
+                    activeTab === tab
+                      ? "bg-primary text-primary-foreground"
+                      : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                  }`}
+                >
+                  {tab}
+                  {tab !== "all" && (
+                    <span className="ml-1.5 rounded-full bg-white/20 px-1.5 text-[10px]">
+                      {orders.filter((o) => o.status === tab).length}
                     </span>
+                  )}
+                </button>
+              ))}
+              <button
+                onClick={() => {
+                  qc.invalidateQueries({ queryKey: ["dashboard-orders"] });
+                  qc.invalidateQueries({ queryKey: ["dashboard-stats"] });
+                  toast.success("Data refreshed");
+                }}
+                className="ml-auto rounded-full border border-border px-4 py-1.5 text-xs font-semibold hover:bg-secondary transition-colors"
+              >
+                Refresh Data
+              </button>
+            </div>
+
+            {/* Orders list */}
+            <div className="mt-6 space-y-4">
+              {ordersLoading && (
+                <div className="py-20 text-center text-muted-foreground text-sm">
+                  Loading orders...
+                </div>
+              )}
+              {!ordersLoading && filteredOrders.length === 0 && (
+                <div className="py-20 text-center text-muted-foreground text-sm">
+                  No orders found for this status. New customer orders will appear here in real-time.
+                </div>
+              )}
+
+              {filteredOrders.map((order) => (
+                <div
+                  key={order._id || order.orderNumber}
+                  className="rounded-3xl border border-border bg-card p-6 transition-shadow hover:shadow-md"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    {/* Left: order info */}
+                    <div>
+                      <div className="flex items-center gap-3">
+                        <span className="font-display text-lg font-bold">{order.orderNumber}</span>
+                        <span className={`rounded-full px-3 py-0.5 text-xs font-bold capitalize ${STATUS_COLORS[order.status] ?? "bg-gray-100"}`}>
+                          {order.status}
+                        </span>
+                      </div>
+                      <p className="mt-1 text-sm font-semibold">{order.customerName}</p>
+                      <p className="text-xs text-muted-foreground">{order.customerPhone}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {order.paymentMethod} | {order.pickupTime}
+                      </p>
+                    </div>
+
+                    {/* Right: total + actions */}
+                    <div className="flex flex-col items-end gap-2">
+                      <span className="font-display text-xl font-bold text-primary">
+                        {formatPrice(order.total)}
+                      </span>
+                      <div className="flex gap-2">
+                        {STATUS_FLOW[order.status] && (
+                          <button
+                            onClick={() => {
+                              const nextStatus = STATUS_FLOW[order.status];
+                              if (nextStatus) {
+                                statusMutation.mutate({
+                                  id: order._id || order.orderNumber,
+                                  status: nextStatus,
+                                });
+                              }
+                            }}
+                            className="rounded-full bg-primary px-3.5 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors capitalize"
+                          >
+                            Mark {STATUS_FLOW[order.status]}
+                          </button>
+                        )}
+                        {order.status !== "cancelled" && order.status !== "completed" && (
+                          <button
+                            onClick={() =>
+                              statusMutation.mutate({
+                                id: order._id || order.orderNumber,
+                                status: "cancelled",
+                              })
+                            }
+                            className="rounded-full border border-red-200 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        )}
+                        {(order.status === "completed" || order.status === "cancelled") && (
+                          <button
+                            onClick={() =>
+                              deleteMutation.mutate(order._id || order.orderNumber)
+                            }
+                            className="rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground hover:bg-secondary transition-colors"
+                          >
+                            Archive
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
-                  <p className="mt-1 text-sm font-semibold">{order.customerName}</p>
-                  <p className="text-xs text-muted-foreground">{order.customerPhone}</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    {order.paymentMethod} | {order.pickupTime}
+
+                  {/* Items list */}
+                  <ul className="mt-4 divide-y divide-border/50">
+                    {order.items.map((item, i) => (
+                      <li key={i} className="flex items-center justify-between py-2 text-sm">
+                        <span className="flex items-center gap-2">
+                          <span className="font-semibold">{item.quantity}x</span>
+                          <span>{item.name}</span>
+                          {item.note && <span className="text-xs text-muted-foreground">({item.note})</span>}
+                        </span>
+                        <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {order.specialInstructions && (
+                    <p className="mt-3 rounded-xl bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
+                      Instructions: {order.specialInstructions}
+                    </p>
+                  )}
+
+                  <p className="mt-3 text-right text-xs text-muted-foreground">
+                    {new Date(order.createdAt).toLocaleString("fr-DZ", {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    })}
                   </p>
                 </div>
+              ))}
+            </div>
+          </div>
+        )}
 
-                {/* Right: total + actions */}
-                <div className="flex flex-col items-end gap-2">
-                  <span className="font-display text-xl font-bold text-primary">
-                    {formatPrice(order.total)}
-                  </span>
-                  <div className="flex gap-2">
-                    {STATUS_FLOW[order.status] && (
+        {/* ─── VIEW 2: PRODUCTS & MENU MANAGEMENT ───────────────────── */}
+        {mainView === "products" && (
+          <div className="mt-10">
+            <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-border">
+              <div>
+                <h2 className="text-2xl font-display font-bold">Menu Products ({menuSections.reduce((acc, s) => acc + s.items.length, 0)})</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  Add new food & drink items or manage existing products in Algerian Dinars (DA).
+                </p>
+              </div>
+              <button
+                onClick={() => setShowAddModal(true)}
+                className="rounded-full bg-primary px-6 py-2.5 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-all shadow-sm"
+              >
+                + Add New Product
+              </button>
+            </div>
+
+            {/* Products by category */}
+            <div className="mt-8 space-y-10">
+              {menuSections.map((section) => (
+                <div key={section.title} className="rounded-3xl border border-border bg-card p-6">
+                  <h3 className="eyebrow text-marker text-sm uppercase tracking-wider mb-4">
+                    {section.title} ({section.items.length})
+                  </h3>
+
+                  <div className="divide-y divide-border/60">
+                    {section.items.map((item) => (
+                      <div key={item.id || item._id || item.name} className="flex items-center justify-between py-3.5 gap-4">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          {item.image && (
+                            <img
+                              src={item.image}
+                              alt={item.name}
+                              className="h-12 w-12 object-contain shrink-0"
+                            />
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-display text-base font-bold">{item.name}</span>
+                              {item.badge && (
+                                <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[10px] font-bold">
+                                  {item.badge}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate">{item.note}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-4 shrink-0">
+                          <span className="font-display font-bold text-primary text-base">
+                            {formatPrice(item.price)}
+                          </span>
+                          {(item.id || item._id) && (
+                            <button
+                              onClick={() => {
+                                if (confirm(`Remove "${item.name}" from the menu?`)) {
+                                  deleteProductMutation.mutate(item.id || item._id || "");
+                                }
+                              }}
+                              className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                            >
+                              Delete
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* ADD PRODUCT MODAL */}
+            {showAddModal && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+                <div className="w-full max-w-lg rounded-3xl bg-card p-6 md:p-8 border border-border shadow-2xl animate-in fade-in zoom-in-95">
+                  <div className="flex items-center justify-between pb-4 border-b border-border">
+                    <h3 className="text-xl font-display font-bold">Add New Product to Menu</h3>
+                    <button
+                      onClick={() => setShowAddModal(false)}
+                      className="rounded-full p-2 text-muted-foreground hover:bg-secondary text-sm"
+                    >
+                      ✕
+                    </button>
+                  </div>
+
+                  <form onSubmit={handleAddProductSubmit} className="mt-6 space-y-4">
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                        Product Name *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        placeholder="e.g. Pistachio Crema Croissant"
+                        value={newProductName}
+                        onChange={(e) => setNewProductName(e.target.value)}
+                        className="w-full rounded-2xl border border-input bg-background px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                          Category *
+                        </label>
+                        <select
+                          value={newProductCategory}
+                          onChange={(e) => setNewProductCategory(e.target.value)}
+                          className="w-full rounded-2xl border border-input bg-background px-4 py-2.5 text-xs font-medium focus:ring-2 focus:ring-primary"
+                        >
+                          <option value="Drinks & Specialty Brews">Drinks & Specialty Brews</option>
+                          <option value="Desserts, Cakes & Bakery">Desserts, Cakes & Bakery</option>
+                          <option value="Savory & Breakfast Plates">Savory & Breakfast Plates</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                          Price in Dinars (DA) *
+                        </label>
+                        <input
+                          type="number"
+                          required
+                          min="10"
+                          step="10"
+                          placeholder="e.g. 450"
+                          value={newProductPrice}
+                          onChange={(e) => setNewProductPrice(e.target.value)}
+                          className="w-full rounded-2xl border border-input bg-background px-4 py-2.5 text-sm focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                        Description / Culinary Notes
+                      </label>
+                      <textarea
+                        rows={2}
+                        placeholder="e.g. Flaky butter croissant filled with pistachio praline cream"
+                        value={newProductNote}
+                        onChange={(e) => setNewProductNote(e.target.value)}
+                        className="w-full rounded-2xl border border-input bg-background px-4 py-2 text-xs focus:ring-2 focus:ring-primary"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                          Badge Tag (Optional)
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="e.g. Chef Special, Signature"
+                          value={newProductBadge}
+                          onChange={(e) => setNewProductBadge(e.target.value)}
+                          className="w-full rounded-2xl border border-input bg-background px-4 py-2 text-xs focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-xs font-semibold text-muted-foreground mb-1">
+                          Image URL (Optional)
+                        </label>
+                        <input
+                          type="url"
+                          placeholder="https://... or /assets/..."
+                          value={newProductImage}
+                          onChange={(e) => setNewProductImage(e.target.value)}
+                          className="w-full rounded-2xl border border-input bg-background px-4 py-2 text-xs focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-border">
                       <button
-                        onClick={() => {
-                          const nextStatus = STATUS_FLOW[order.status];
-                          if (nextStatus) {
-                            statusMutation.mutate({
-                              id: order._id || order.orderNumber,
-                              status: nextStatus,
-                            });
-                          }
-                        }}
-                        className="rounded-full bg-primary px-3.5 py-1 text-xs font-bold text-primary-foreground hover:bg-primary/90 transition-colors capitalize"
-                      >
-                        Mark {STATUS_FLOW[order.status]}
-                      </button>
-                    )}
-                    {order.status !== "cancelled" && order.status !== "completed" && (
-                      <button
-                        onClick={() =>
-                          statusMutation.mutate({
-                            id: order._id || order.orderNumber,
-                            status: "cancelled",
-                          })
-                        }
-                        className="rounded-full border border-red-200 px-3 py-1 text-xs font-bold text-red-600 hover:bg-red-50 transition-colors"
+                        type="button"
+                        onClick={() => setShowAddModal(false)}
+                        className="rounded-full border border-border px-5 py-2 text-xs font-semibold hover:bg-secondary"
                       >
                         Cancel
                       </button>
-                    )}
-                    {(order.status === "completed" || order.status === "cancelled") && (
                       <button
-                        onClick={() =>
-                          deleteMutation.mutate(order._id || order.orderNumber)
-                        }
-                        className="rounded-full border border-border px-3 py-1 text-xs font-bold text-muted-foreground hover:bg-secondary transition-colors"
+                        type="submit"
+                        disabled={isSubmittingProduct}
+                        className="rounded-full bg-primary px-6 py-2 text-xs font-bold text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
                       >
-                        Archive
+                        {isSubmittingProduct ? "Saving..." : "Save Product"}
                       </button>
-                    )}
-                  </div>
+                    </div>
+                  </form>
                 </div>
               </div>
-
-              {/* Items list */}
-              <ul className="mt-4 divide-y divide-border/50">
-                {order.items.map((item, i) => (
-                  <li key={i} className="flex items-center justify-between py-2 text-sm">
-                    <span className="flex items-center gap-2">
-                      <span className="font-semibold">{item.quantity}x</span>
-                      <span>{item.name}</span>
-                      {item.note && <span className="text-xs text-muted-foreground">({item.note})</span>}
-                    </span>
-                    <span className="font-medium">{formatPrice(item.price * item.quantity)}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {order.specialInstructions && (
-                <p className="mt-3 rounded-xl bg-secondary/60 px-3 py-2 text-xs text-muted-foreground">
-                  Instructions: {order.specialInstructions}
-                </p>
-              )}
-
-              <p className="mt-3 text-right text-xs text-muted-foreground">
-                {new Date(order.createdAt).toLocaleString("fr-DZ", {
-                  dateStyle: "medium",
-                  timeStyle: "short",
-                })}
-              </p>
-            </div>
-          ))}
-        </div>
+            )}
+          </div>
+        )}
       </div>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  sub,
+  color,
+}: {
+  label: string;
+  value: string | number;
+  sub?: string;
+  color: string;
+}) {
+  return (
+    <div className="rounded-3xl border border-border bg-card p-5">
+      <p className="text-xs text-muted-foreground">{label}</p>
+      <p className="mt-2 text-2xl md:text-3xl font-display font-bold">{value}</p>
+      {sub && <p className="mt-1 text-[11px] text-muted-foreground">{sub}</p>}
     </div>
   );
 }

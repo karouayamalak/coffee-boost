@@ -132,6 +132,33 @@ export async function fetchBeans(): Promise<BeanItem[]> {
   }
 }
 
+export async function addMenuItem(item: {
+  name: string;
+  note?: string | undefined;
+  price: number;
+  category: string;
+  badge?: string | undefined;
+  image?: string | undefined;
+}) {
+  const res = await fetch(`${API_BASE_URL}/menu`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(item),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to add menu item");
+  return data;
+}
+
+export async function deleteMenuItem(id: string) {
+  const res = await fetch(`${API_BASE_URL}/menu/${id}`, {
+    method: "DELETE",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.message || "Failed to delete item");
+  return data;
+}
+
 export async function placeOrder(order: OrderPayload) {
   try {
     const res = await fetch(`${API_BASE_URL}/orders`, {
