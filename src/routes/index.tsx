@@ -76,12 +76,9 @@ export const Route = createFileRoute("/")({
   component: Index,
 });
 
-const ITEMS_PER_PAGE = 5;
-
 function Index() {
   const { addItem, openCart } = useCart();
   const [selectedCategory, setSelectedCategory] = useState<string>("All");
-  const [currentPage, setCurrentPage] = useState<number>(1);
 
   // Dynamic menu query from MongoDB database with resilient fallback
   const { data: menuSections = FALLBACK_MENU_SECTIONS } = useQuery({
@@ -106,25 +103,12 @@ function Index() {
     });
   };
 
-  // Flatten items for dynamic pagination
   const filteredSections =
     selectedCategory === "All"
       ? menuSections
       : menuSections.filter((s) => s.title.toLowerCase().includes(selectedCategory.toLowerCase()));
 
-  const allFilteredItems = filteredSections.flatMap((s) =>
-    s.items.map((i) => ({ ...i, categoryTitle: s.title }))
-  );
-
-  const totalPages = Math.max(1, Math.ceil(allFilteredItems.length / ITEMS_PER_PAGE));
-  const safePage = Math.min(currentPage, totalPages);
-  const startIndex = (safePage - 1) * ITEMS_PER_PAGE;
-  const currentItems = allFilteredItems.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-
-  const handleCategoryChange = (cat: string) => {
-    setSelectedCategory(cat);
-    setCurrentPage(1);
-  };
+  const totalItemsCount = menuSections.reduce((acc, s) => acc + s.items.length, 0);
 
   return (
     <div className="overflow-x-hidden">
@@ -375,20 +359,12 @@ function Index() {
         </div>
       </section>
 
-      {/* ─── THE COUNTER MENU (BOOK OF A MENU STYLE WITH PAGINATION) ──── */}
+      {/* ─── THE COUNTER MENU (MATCHING EXACT REFERENCE STYLE) ───────── */}
       <section id="menu" className="mx-auto max-w-4xl scroll-mt-24 px-6 py-20">
-        <div className="flex flex-wrap items-baseline justify-between border-b border-border pb-6 gap-4">
-          <div>
-            <h2 className="text-4xl md:text-5xl font-display font-extrabold text-primary tracking-tight">
-              The counter
-            </h2>
-            <p className="text-xs text-muted-foreground mt-1 hidden md:block">
-              Page {safePage} of {totalPages} · {selectedCategory === "All" ? "Full Collection" : selectedCategory}
-            </p>
-            <p className="text-xs text-muted-foreground mt-1 md:hidden">
-              {allFilteredItems.length} items · {selectedCategory === "All" ? "Full Collection" : selectedCategory}
-            </p>
-          </div>
+        <div className="flex items-baseline justify-between border-b border-border pb-6">
+          <h2 className="text-4xl md:text-5xl font-display font-extrabold text-primary tracking-tight">
+            The counter
+          </h2>
           <p className="script text-2xl md:text-3xl text-marker">served all day</p>
         </div>
 
@@ -397,7 +373,7 @@ function Index() {
           {["All", "Drinks", "Desserts", "Savory"].map((cat) => (
             <button
               key={cat}
-              onClick={() => handleCategoryChange(cat)}
+              onClick={() => setSelectedCategory(cat)}
               className={`rounded-full px-5 py-1.5 text-xs font-bold transition-all ${
                 selectedCategory === cat
                   ? "bg-primary text-primary-foreground shadow-sm"
@@ -405,7 +381,7 @@ function Index() {
               }`}
             >
               {cat === "All"
-                ? `All Items (${allFilteredItems.length})`
+                ? `All Items (${totalItemsCount})`
                 : cat === "Desserts"
                 ? "Desserts & Cakes"
                 : cat === "Savory"
@@ -415,159 +391,70 @@ function Index() {
           ))}
         </div>
 
-        {/* ── MOBILE: Full scrollable list (no pagination) ── */}
-        <div className="md:hidden mt-8 rounded-3xl border border-border/80 bg-card/60 p-4 shadow-sm">
-          <div className="divide-y divide-border/60">
-            {allFilteredItems.map((item) => {
-              const itemImg = item.image || ASSET_MAP[item.name] || itemCroissant;
-              return (
-                <div
-                  key={item.id || item._id || item.name}
-                  className="group flex items-center gap-3 py-3 px-1 transition-colors hover:bg-card rounded-2xl"
-                >
-                  <div className="shrink-0 h-12 w-12 flex items-center justify-center">
-                    <img
-                      src={itemImg}
-                      alt={item.name}
-                      className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="font-display text-sm font-bold text-foreground leading-tight">
-                        {item.name}
-                      </span>
-                      {item.badge && (
-                        <span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-[9px] font-bold whitespace-nowrap">
-                          {item.badge}
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1">{item.note}</p>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="font-display text-sm font-bold text-primary whitespace-nowrap">
-                      {formatPrice(item.price)}
-                    </span>
-                    <button
-                      onClick={() => handleAddItem({ name: item.name, price: item.price, note: item.note, image: itemImg })}
-                      className="rounded-full bg-secondary px-3 py-1 text-[11px] font-bold text-secondary-foreground transition-all hover:bg-primary hover:text-primary-foreground active:scale-95 whitespace-nowrap"
-                      aria-label={`Add ${item.name} to order`}
+        {/* Dynamic Menu Sections */}
+        <div className="mt-10 space-y-12">
+          {filteredSections.map((section) => (
+            <div key={section.title}>
+              <h3 className="eyebrow text-marker text-sm uppercase tracking-wider mb-4">
+                {section.title} ({section.items.length})
+              </h3>
+
+              <div className="divide-y divide-border/60 border-y border-border/60">
+                {section.items.map((item) => {
+                  const itemImg = item.image || ASSET_MAP[item.name] || itemCroissant;
+                  return (
+                    <div
+                      key={item.id || item._id || item.name}
+                      className="group flex items-center gap-4 py-3.5 px-2 transition-colors hover:bg-card/40 rounded-2xl"
                     >
-                      + Add
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
+                      {/* Free-floating transparent PNG food picture */}
+                      <div className="shrink-0 h-16 w-16 flex items-center justify-center">
+                        <img
+                          src={itemImg}
+                          alt={item.name}
+                          className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
+                        />
+                      </div>
 
-        {/* ── DESKTOP: Book-style paginated layout ── */}
-        <div className="hidden md:block mt-8 rounded-3xl border border-border/80 bg-card/60 p-8 shadow-sm">
-          <div className="flex items-center justify-between pb-4 border-b border-border/60">
-            <span className="eyebrow text-marker text-xs tracking-wider uppercase">
-              {currentItems[0]?.categoryTitle || selectedCategory}
-            </span>
-            <span className="text-xs font-medium text-muted-foreground">
-              Showing items {startIndex + 1}–{Math.min(startIndex + ITEMS_PER_PAGE, allFilteredItems.length)} of {allFilteredItems.length}
-            </span>
-          </div>
+                      {/* Name & Note */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-display text-base md:text-lg font-bold text-foreground leading-tight">
+                            {item.name}
+                          </span>
+                          {item.badge && (
+                            <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap">
+                              {item.badge}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">
+                          {item.note}
+                        </p>
+                      </div>
 
-          <div className="divide-y divide-border/60">
-            {currentItems.map((item) => {
-              const itemImg = item.image || ASSET_MAP[item.name] || itemCroissant;
-              return (
-                <div
-                  key={item.id || item._id || item.name}
-                  className="group flex items-center gap-4 py-4 px-2 transition-colors hover:bg-card rounded-2xl"
-                >
-                  <div className="shrink-0 h-16 w-16 flex items-center justify-center">
-                    <img
-                      src={itemImg}
-                      alt={item.name}
-                      className="max-h-full max-w-full object-contain transition-transform duration-300 group-hover:scale-110 group-hover:-translate-y-0.5"
-                    />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-display text-base md:text-lg font-bold text-foreground leading-tight">
-                        {item.name}
-                      </span>
-                      {item.badge && (
-                        <span className="rounded-full bg-primary/10 text-primary px-2.5 py-0.5 text-[10px] font-bold whitespace-nowrap">
-                          {item.badge}
+                      {/* Dotted leader */}
+                      <span className="hidden md:block flex-1 max-w-[80px] border-b border-dotted border-border/80 mx-2 shrink-0" />
+
+                      {/* Price & Add Button */}
+                      <div className="flex items-center gap-3 shrink-0">
+                        <span className="font-display text-base md:text-lg font-bold text-primary whitespace-nowrap">
+                          {formatPrice(item.price)}
                         </span>
-                      )}
+                        <button
+                          onClick={() => handleAddItem({ name: item.name, price: item.price, note: item.note, image: itemImg })}
+                          className="rounded-full bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground transition-all hover:scale-105 active:scale-95 hover:bg-primary hover:text-primary-foreground whitespace-nowrap"
+                          aria-label={`Add ${item.name} to order`}
+                        >
+                          + Add
+                        </button>
+                      </div>
                     </div>
-                    <p className="text-xs text-muted-foreground mt-0.5 leading-snug line-clamp-2">{item.note}</p>
-                  </div>
-                  <span className="flex-1 max-w-[80px] border-b border-dotted border-border/80 mx-2 shrink-0" />
-                  <div className="flex items-center gap-3 shrink-0">
-                    <span className="font-display text-base md:text-lg font-bold text-primary whitespace-nowrap">
-                      {formatPrice(item.price)}
-                    </span>
-                    <button
-                      onClick={() => handleAddItem({ name: item.name, price: item.price, note: item.note, image: itemImg })}
-                      className="rounded-full bg-secondary px-4 py-1.5 text-xs font-bold text-secondary-foreground transition-all hover:scale-105 active:scale-95 hover:bg-primary hover:text-primary-foreground whitespace-nowrap"
-                      aria-label={`Add ${item.name} to order`}
-                    >
-                      + Add
-                    </button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* ─── BOOK PAGINATION CONTROLS ───────────────────────────── */}
-          {totalPages > 1 && (
-            <div className="mt-8 flex flex-wrap items-center justify-between gap-3 pt-6 border-t border-border/60">
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.max(1, prev - 1));
-                  const menuEl = document.getElementById("menu");
-                  if (menuEl) menuEl.scrollIntoView({ behavior: "smooth" });
-                }}
-                disabled={safePage === 1}
-                className="rounded-full border border-border px-4 py-2 text-xs font-bold transition-colors hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
-              >
-                ← Previous Page
-              </button>
-
-              <div className="flex items-center gap-1.5">
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                  <button
-                    key={pageNum}
-                    onClick={() => {
-                      setCurrentPage(pageNum);
-                      const menuEl = document.getElementById("menu");
-                      if (menuEl) menuEl.scrollIntoView({ behavior: "smooth" });
-                    }}
-                    className={`h-8 w-8 rounded-full text-xs font-bold transition-all ${
-                      safePage === pageNum
-                        ? "bg-primary text-primary-foreground shadow-sm scale-105"
-                        : "bg-secondary/70 text-secondary-foreground hover:bg-secondary"
-                    }`}
-                  >
-                    {pageNum}
-                  </button>
-                ))}
+                  );
+                })}
               </div>
-
-              <button
-                onClick={() => {
-                  setCurrentPage((prev) => Math.min(totalPages, prev + 1));
-                  const menuEl = document.getElementById("menu");
-                  if (menuEl) menuEl.scrollIntoView({ behavior: "smooth" });
-                }}
-                disabled={safePage === totalPages}
-                className="rounded-full border border-border px-4 py-2 text-xs font-bold transition-colors hover:bg-secondary disabled:opacity-40 disabled:pointer-events-none"
-              >
-                Next Page →
-              </button>
             </div>
-          )}
+          ))}
         </div>
 
         {/* Order Callout */}
